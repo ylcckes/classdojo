@@ -1,24 +1,25 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <!--
-    普普風班級榮譽點數系統 V5.2 (Firebase版)
+    普普風班級榮譽點數系統 V5.2 (Firebase版) -> 現代極光風格 V7.1 (權限優化版)
     作者：阿剛老師
     改造者：Gemini
     
-    系統模式說明：
-    1. 家長模式（預設）：直接開啟HTML文件，僅能查看學生點數，無法修改
-       - 特色：頂部綠色橫幅、禁用所有互動功能、隱藏管理按鈕
-       - 適合：分享給家長查看孩子的點數狀況
+    更新日誌 V7.1:
+    - [安全性] Firebase 設定按鈕改為僅在「教師模式」下顯示 (避免誤觸)
+    - [UI] 調整按鈕順序：設定按鈕移至說明按鈕左側
+    - [文件] 新增「常見錯誤排除」說明，引導使用者建立 Firestore 索引
     
-    2. 教師模式：網址加上 ?mode=teacher 參數
-       - 特色：完整管理功能、可加扣分、管理學生、匯出成績等
-       - 適合：教師進行班級管理
-       - 範例：file:///path/to/file.html?mode=teacher
+    更新日誌 V7.0:
+    - 實作「多重設定來源」優先級邏輯 (URL > Hardcoded > LocalStorage)
+    - 新增「設定面板」：支援貼上 Config 文字自動解析
+    - 新增「一鍵分享」：生成包含設定參數的 QR Code 與連結
+    - UI 優化：設定引導畫面與重設功能
 -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>普普風班級榮譽點數系統</title>
+    <title>班級榮譽點數系統 (Modern V7)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
@@ -27,361 +28,586 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* 自定義 Pop Art 風格 */
+        /* --- 核心變數與主題定義 --- */
+        :root {
+            /* 深色主題 (Default/Dark) */
+            --bg-color: #0f172a;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --glass-panel-dark-bg: rgba(0, 0, 0, 0.6);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            --card-hover-shadow: 0 20px 40px -5px rgba(0,0,0,0.4), 0 0 20px rgba(139, 92, 246, 0.3);
+            --bg-image: 
+                radial-gradient(at 0% 0%, rgba(76, 29, 149, 0.3) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.3) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.3) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(99, 102, 241, 0.3) 0px, transparent 50%);
+            
+            --primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            --secondary-gradient: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+            --accent-gradient: linear-gradient(135deg, #f43f5e 0%, #f59e0b 100%);
+        }
+
+        /* 亮色主題 (Light) */
+        [data-theme="light"] {
+            --bg-color: #f0f9ff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --glass-bg: rgba(255, 255, 255, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.8);
+            --glass-panel-dark-bg: rgba(255, 255, 255, 0.85); /* 亮色模式下變為不透明白 */
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            --card-hover-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --bg-image: 
+                radial-gradient(at 0% 0%, rgba(186, 230, 253, 0.5) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(254, 249, 195, 0.5) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(251, 207, 232, 0.5) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(221, 214, 254, 0.5) 0px, transparent 50%);
+        }
+
         body {
             font-family: 'Noto Sans TC', sans-serif;
-            background-color: #fef3c7; /* 溫暖的黃色背景 */
+            background-color: var(--bg-color);
+            background-image: var(--bg-image);
+            background-attachment: fixed;
+            background-size: cover;
+            color: var(--text-main);
+            min-height: 100vh;
+            transition: color 0.3s ease, background 0.3s ease;
         }
-        .font-anton {
-            font-family: 'Anton', sans-serif;
-            letter-spacing: 0.05em;
+
+        .font-exo {
+            font-family: 'Exo 2', sans-serif;
         }
-        .pop-shadow {
-            box-shadow: 8px 8px 0px black;
+
+        /* Glassmorphism Utilities */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
         }
-        .pop-shadow-sm {
-            box-shadow: 4px 4px 0px black;
+
+        .glass-panel-dark {
+            background: var(--glass-panel-dark-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            color: var(--text-main);
         }
-        .pop-button {
-            transition: all 0.15s ease-out;
+
+        /* Buttons */
+        .modern-btn {
+            background-size: 200% auto;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            position: relative;
+            overflow: hidden;
+            color: white !important; /* 按鈕文字永遠保持白色 */
         }
-        .pop-button:hover {
-            transform: translate(4px, 4px);
-            box-shadow: 4px 4px 0px black;
+        .modern-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -10px rgba(0, 0, 0, 0.3);
+            background-position: right center;
         }
-        .pop-button:active {
-            transform: translate(8px, 8px);
-            box-shadow: none;
+        .modern-btn:active {
+            transform: scale(0.98);
         }
-        .modal-backdrop {
-            background-color: rgba(0,0,0,0.6);
-            backdrop-filter: blur(5px);
+
+        .btn-primary { background-image: var(--primary-gradient); }
+        .btn-secondary { background-image: var(--secondary-gradient); }
+        .btn-accent { background-image: var(--accent-gradient); }
+        
+        .btn-glass {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: var(--text-main);
         }
+        [data-theme="light"] .btn-glass {
+            background: rgba(0,0,0,0.05);
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .btn-glass:hover { background: rgba(255,255,255,0.25); }
+        [data-theme="light"] .btn-glass:hover { background: rgba(0,0,0,0.1); }
+
+        /* Student Card */
         .student-card {
-            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .student-card:hover {
-            transform: scale(1.05) rotate(-1deg);
-            box-shadow: 12px 12px 0px rgba(0,0,0,0.8);
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: var(--card-hover-shadow);
+            border-color: rgba(139, 92, 246, 0.5);
         }
-        /* 點數增減動畫 */
+        .student-card img {
+            transition: transform 0.5s ease;
+        }
+        .student-card:hover img {
+            transform: scale(1.1);
+        }
+
+        /* Animations */
+        @keyframes glow {
+            0%, 100% { text-shadow: 0 0 10px rgba(255,255,255,0.5), 0 0 20px rgba(255,255,255,0.3); }
+            50% { text-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 40px rgba(167, 139, 250, 0.6); }
+        }
+        .title-glow {
+            animation: glow 3s infinite;
+        }
+        [data-theme="light"] .title-glow {
+            animation: none; /* 亮色模式下取消發光，改為深色陰影 */
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+        }
+
         .point-change-up {
-            animation: point-up 0.8s ease-out forwards;
+            animation: point-up-modern 0.8s cubic-bezier(0, 0.9, 0.5, 1) forwards;
         }
         .point-change-down {
-            animation: point-down 0.8s ease-out forwards;
+            animation: point-down-modern 0.8s cubic-bezier(0, 0.9, 0.5, 1) forwards;
         }
-        @keyframes point-up {
-            0% { transform: translateY(0) scale(1); opacity: 1; color: #16a34a; } /* green-600 */
-            100% { transform: translateY(-40px) scale(1.5); opacity: 0; }
+
+        @keyframes point-up-modern {
+            0% { transform: translateY(0) scale(0.5); opacity: 0; filter: blur(10px); }
+            20% { opacity: 1; transform: translateY(-20px) scale(1.2); filter: blur(0); text-shadow: 0 0 20px #4ade80; }
+            100% { transform: translateY(-80px) scale(1.5); opacity: 0; filter: blur(5px); }
         }
-        @keyframes point-down {
-            0% { transform: translateY(0) scale(1); opacity: 1; color: #dc2626; } /* red-600 */
-            100% { transform: translateY(40px) scale(1.5); opacity: 0; }
+        @keyframes point-down-modern {
+            0% { transform: translateY(0) scale(0.5); opacity: 0; filter: blur(10px); }
+            20% { opacity: 1; transform: translateY(20px) scale(1.2); filter: blur(0); text-shadow: 0 0 20px #f87171; }
+            100% { transform: translateY(80px) scale(1.5); opacity: 0; filter: blur(5px); }
         }
-        /* 分頁樣式 */
+
+        /* Modals */
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+        }
+        
+        /* Tabs */
         .tab-button {
-            transition: all 0.2s ease-out;
+            position: relative;
+            overflow: hidden;
+            color: var(--text-muted);
         }
-        .tab-button:not(.active-tab):hover {
-            transform: translateY(-2px);
+        .tab-button::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, #6366f1, #a855f7);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
         }
-        .active-tab {
-            background-color: #facc15 !important; /* yellow-400 */
-            transform: translateY(-2px);
-            box-shadow: 0 4px 0 black;
+        .tab-button.active-tab::after {
+            transform: scaleX(1);
         }
-        .group-card {
-            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+        .tab-button.active-tab {
+            color: var(--text-main);
+            background: linear-gradient(to bottom, rgba(255,255,255,0.1), transparent);
         }
-        .group-card:hover {
-            transform: scale(1.02) rotate(-0.5deg);
-            box-shadow: 12px 12px 0px rgba(0,0,0,0.8);
+        [data-theme="light"] .tab-button.active-tab {
+            background: linear-gradient(to bottom, rgba(0,0,0,0.05), transparent);
         }
-        /* 家長模式樣式 */
-        .parent-mode .student-card,
-        .parent-mode .group-card {
-            cursor: default !important;
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05); 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(150, 150, 150, 0.3); 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(150, 150, 150, 0.5); 
+        }
+
+        /* Parent Mode */
+        .parent-mode .student-card {
             pointer-events: none;
         }
-        .parent-mode .student-card:hover,
-        .parent-mode .group-card:hover {
-            transform: none !important;
-            box-shadow: 8px 8px 0px black !important;
-        }
         .parent-mode-banner {
-            background: linear-gradient(45deg, #10b981, #059669);
+            background: linear-gradient(90deg, #059669, #10b981);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
             color: white;
-            padding: 8px;
+            padding: 10px;
             text-align: center;
             font-weight: bold;
-            border-bottom: 4px solid black;
+            font-size: 0.9rem;
+            letter-spacing: 0.05em;
         }
-        .prose { max-width: 65ch; color: #374151; }
-        .prose a { color: #4f46e5; text-decoration: underline; }
-        .prose strong { color: #1f2937; font-weight: 600; }
-        .prose ol { list-style-type: decimal; margin-left: 1.25rem; }
-        .prose li { margin-top: 0.5rem; }
-        .prose h4 { font-size: 1.25rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 1rem; }
-        .prose pre { background-color: #e5e7eb; padding: 1rem; border-radius: 0.375rem; overflow-x: auto; }
-        .prose code { font-family: monospace; }
+
+        /* Prose Overrides for Themes */
+        .prose { color: var(--text-muted); }
+        .prose h4 { color: var(--text-main); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem; }
+        .prose a { color: #60a5fa; }
+        [data-theme="light"] .prose a { color: #2563eb; }
+        .prose strong { color: var(--text-main); }
+        .prose pre { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); }
+        [data-theme="light"] .prose pre { background: #f1f5f9; border: 1px solid #cbd5e1; }
+        .prose code { color: #f472b6; }
+        [data-theme="light"] .prose code { color: #db2777; }
+        
+        /* Utility overrides for light mode */
+        [data-theme="light"] .text-white { color: #1e293b; } /* 反轉強制白色的文字 */
+        [data-theme="light"] .text-gray-400 { color: #64748b; }
+        [data-theme="light"] .text-gray-200 { color: #1e293b; }
+        [data-theme="light"] .text-blue-300 { color: #3b82f6; }
+        [data-theme="light"] .border-white\/20 { border-color: rgba(0,0,0,0.1); }
+        [data-theme="light"] .border-white\/10 { border-color: rgba(0,0,0,0.05); }
+        [data-theme="light"] .bg-white\/5 { background-color: rgba(255,255,255,0.5); }
+        [data-theme="light"] .bg-white\/10 { background-color: rgba(0,0,0,0.05); }
+        [data-theme="light"] .bg-black\/20 { background-color: rgba(255,255,255,0.5); }
+        [data-theme="light"] .bg-black\/30 { background-color: rgba(255,255,255,0.8); }
+        [data-theme="light"] .bg-white { background-color: #ffffff; }
+        
+        /* Icons */
+        .icon { width: 1.5rem; height: 1.5rem; }
     </style>
 </head>
-<body class="antialiased text-gray-800">
+<body class="antialiased selection:bg-purple-500 selection:text-white">
 
     <!-- 主容器 -->
     <div id="app-container" class="container mx-auto p-4 md:p-8 max-w-7xl">
 
         <!-- 頂部標題和控制按鈕 -->
-        <header class="flex justify-between items-center mb-8">
-            <div class="flex items-baseline gap-x-3 md:gap-x-4">
-                <h1 id="class-name-title" class="font-anton text-4xl md:text-6xl text-black drop-shadow-[4px_4px_0px_#facc15]">Classroom Points!</h1>
-                <span class="font-normal text-gray-600 text-sm md:text-base whitespace-nowrap">(Made by 阿剛老師)</span>
+        <header class="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
+            <div class="flex flex-col items-center md:items-start">
+                <h1 id="class-name-title" class="font-exo font-black text-5xl md:text-7xl text-transparent bg-clip-text bg-gradient-to-r from-teal-300 via-blue-400 to-purple-400 title-glow drop-shadow-lg pb-2">Classroom Points!</h1>
+                <span class="font-light text-gray-400 text-sm tracking-widest uppercase">(Remixed by Gemini • Original by 阿剛老師)</span>
             </div>
-            <div class="flex items-center space-x-2 md:space-x-4">
-                <button id="sort-btn" class="text-4xl hover:scale-110 transition-transform" title="目前：按姓名排序，點擊切換為按分數排序">★</button>
-                <button id="parent-link-btn" class="text-4xl hover:scale-110 transition-transform" title="生成家長檢視連結">👨‍👩‍👧‍👦</button>
-                <button id="teacher-panel-btn" class="text-4xl hover:scale-110 transition-transform">🧑‍🏫</button>
-                <button id="help-btn" class="text-4xl hover:scale-110 transition-transform">❓</button>
+            <div class="flex items-center space-x-3 bg-white/5 p-2 rounded-full backdrop-blur-md border border-white/10 shadow-lg">
+                <button id="theme-toggle-btn" class="w-12 h-12 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors text-yellow-300" title="切換主題">
+                    <!-- Sun/Moon Icon -->
+                    <svg id="icon-sun" class="w-6 h-6 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+                    </svg>
+                    <svg id="icon-moon" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                    </svg>
+                </button>
+                <div class="w-px h-6 bg-white/20 mx-1"></div>
+                
+                <button id="sort-btn" class="w-12 h-12 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors text-yellow-400" title="切換排序">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                      <path fill-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                <button id="parent-link-btn" class="w-12 h-12 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors text-green-400" title="家長連結">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                      <path fill-rule="evenodd" d="M3 4.875C3 3.839 3.84 3 4.875 3h4.5c1.036 0 1.875.84 1.875 1.875v4.5c0 1.036-.84 1.875-1.875 1.875h-4.5A1.875 1.875 0 013 9.375v-4.5zM4.875 4.5a.375.375 0 00-.375.375v4.5c0 .207.168.375.375.375h4.5a.375.375 0 00.375-.375v-4.5a.375.375 0 00-.375-.375h-4.5zm7.875.375c0-1.036.84-1.875 1.875-1.875h4.5C20.16 3 21 3.84 21 4.875v4.5c0 1.036-.84 1.875-1.875 1.875h-4.5a1.875 1.875 0 01-1.875-1.875v-4.5zm1.875-.375a.375.375 0 00-.375.375v4.5c0 .207.168.375.375.375h4.5a.375.375 0 00.375-.375v-4.5a.375.375 0 00-.375-.375h-4.5zM6 15.375c0-1.035.84-1.875 1.875-1.875h4.5c1.036 0 1.875.84 1.875 1.875v4.5c0 1.036-.84 1.875-1.875 1.875h-4.5A1.875 1.875 0 016 19.875v-4.5zm1.875-.375a.375.375 0 00-.375.375v4.5c0 .207.168.375.375.375h4.5a.375.375 0 00.375-.375v-4.5a.375.375 0 00-.375-.375h-4.5z" clip-rule="evenodd" />
+                      <path d="M16.5 15.75a.75.75 0 00-.75.75v1.5h-1.5a.75.75 0 000 1.5h1.5v1.5a.75.75 0 001.5 0v-1.5h1.5a.75.75 0 000-1.5h-1.5v-1.5a.75.75 0 00-.75-.75z" />
+                    </svg>
+                </button>
+                <button id="teacher-panel-btn" class="w-12 h-12 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors text-blue-400" title="教師面板">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                      <path d="M18.75 12.75h1.5a.75.75 0 000-1.5h-1.5a.75.75 0 000 1.5zM12 6a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 0112 6zM12 18a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 0112 18zM3.75 6.75h1.5a.75.75 0 100-1.5h-1.5a.75.75 0 000 1.5zM5.25 18.75h-1.5a.75.75 0 010-1.5h1.5a.75.75 0 010 1.5zM3 12a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 013 12zM9 3.75a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5zM12.75 12a2.25 2.25 0 114.5 0 2.25 2.25 0 01-4.5 0zM9 15.75a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" />
+                    </svg>
+                </button>
+                
+                <!-- 新增：設定按鈕 (已移至說明按鈕左側) -->
+                <button id="config-btn" class="w-12 h-12 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors text-gray-300" title="Firebase 設定">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </button>
+
+                <button id="help-btn" class="w-12 h-12 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors text-pink-400" title="說明">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                      <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm11.378-3.917c-.89-.777-2.366-.777-3.255 0a.75.75 0 01-.988-1.129c1.454-1.272 3.776-1.272 5.23 0 1.513 1.324 1.513 3.518 0 4.842a3.75 3.75 0 01-.837.552c-.676.328-1.028.774-1.028 1.152v.202a.75.75 0 01-1.5 0v-.202c0-.944.606-1.657 1.336-2.008a2.25 2.25 0 00.512-.331c.94-.822.94-2.153 0-2.976zM12 17.062a.938.938 0 110-1.875.938.938 0 010 1.875z" clip-rule="evenodd" />
+                    </svg>
+                </button>
             </div>
         </header>
 
         <!-- 教師管理面板 (預設隱藏) -->
-        <div id="control-panel" class="bg-blue-400 border-4 border-black p-4 rounded-lg pop-shadow mb-8 flex-wrap gap-4 justify-center hidden">
-            <button id="manage-student-btn" class="pop-button pop-shadow-sm bg-green-400 border-2 border-black rounded-md px-6 py-2 font-bold text-lg">管理學生</button>
-            <button id="manage-avatars-btn" class="pop-button pop-shadow-sm bg-cyan-400 border-2 border-black rounded-md px-6 py-2 font-bold text-lg">上傳頭像</button>
-            <button id="manage-behaviors-btn" class="pop-button pop-shadow-sm bg-yellow-400 border-2 border-black rounded-md px-6 py-2 font-bold text-lg">管理行為</button>
-            <button id="export-grades-btn" class="pop-button pop-shadow-sm bg-purple-500 text-white border-2 border-black rounded-md px-6 py-2 font-bold text-lg">匯出成績</button>
-            <button id="reset-points-btn" class="pop-button pop-shadow-sm bg-red-500 border-2 border-black rounded-md px-6 py-2 font-bold text-lg text-white">重設點數</button>
+        <div id="control-panel" class="glass-panel p-6 rounded-2xl mb-10 flex flex-wrap gap-4 justify-center hidden animate-fade-in-down">
+            <button id="manage-student-btn" class="modern-btn btn-secondary rounded-xl px-6 py-3 font-bold text-lg shadow-lg">管理學生</button>
+            <button id="manage-avatars-btn" class="modern-btn btn-secondary rounded-xl px-6 py-3 font-bold text-lg shadow-lg" style="background-image: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);">上傳頭像</button>
+            <button id="manage-behaviors-btn" class="modern-btn btn-secondary rounded-xl px-6 py-3 font-bold text-lg shadow-lg" style="background-image: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);">管理行為</button>
+            <button id="class-settings-btn" class="modern-btn btn-secondary rounded-xl px-6 py-3 font-bold text-lg shadow-lg" style="background-image: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);">班級設定</button>
+            <button id="export-grades-btn" class="modern-btn btn-primary rounded-xl px-6 py-3 font-bold text-lg shadow-lg">匯出成績</button>
+            <button id="reset-points-btn" class="modern-btn btn-accent rounded-xl px-6 py-3 font-bold text-lg shadow-lg">重設點數</button>
         </div>
 
         <!-- 分頁導航 -->
         <div id="tabs-container" class="mb-8 hidden">
-            <div class="flex border-b-4 border-black">
-                <button id="students-tab" class="tab-button active-tab px-6 py-3 font-bold text-lg bg-yellow-400 border-4 border-black border-b-0 rounded-t-lg mr-2">學生</button>
-                <button id="groups-tab" class="tab-button px-6 py-3 font-bold text-lg bg-gray-300 border-4 border-black border-b-0 rounded-t-lg hover:bg-gray-200">分組</button>
+            <div class="flex border-b border-white/20">
+                <button id="students-tab" class="tab-button active-tab px-8 py-3 font-bold text-lg rounded-t-xl mr-2 transition-colors">學生</button>
+                <button id="groups-tab" class="tab-button px-8 py-3 font-bold text-lg rounded-t-xl transition-colors">分組</button>
             </div>
         </div>
 
         <!-- 學生檢視 -->
-        <div id="students-view" class="tab-content">
+        <div id="students-view" class="tab-content min-h-[300px]">
             <div id="student-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                 <!-- 學生卡片將會動態插入這裡 -->
             </div>
         </div>
 
         <!-- 分組檢視 -->
-        <div id="groups-view" class="tab-content hidden">
+        <div id="groups-view" class="tab-content hidden min-h-[300px]">
             <div id="groups-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <!-- 分組卡片將會動態插入這裡 -->
             </div>
         </div>
 
         <!-- 初始提示/載入畫面 -->
-        <div id="initial-prompt" class="text-center py-20">
-            <p id="loading-text" class="text-2xl font-bold">正在從 Firebase 載入資料...</p>
-            <div id="spinner" class="animate-spin rounded-full h-12 w-12 border-b-4 border-black mx-auto mt-4"></div>
-            <div id="setup-prompt" class="hidden mt-4 text-lg"></div>
+        <div id="initial-prompt" class="text-center py-32 glass-panel rounded-3xl mx-auto max-w-2xl mt-10">
+            <p id="loading-text" class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">正在連接資料庫...</p>
+            <div id="spinner" class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mx-auto mt-8 shadow-[0_0_20px_rgba(59,130,246,0.5)]"></div>
+            
+            <!-- Setup Prompt (當沒有 Config 時顯示) -->
+            <div id="setup-prompt" class="hidden mt-6 text-lg text-gray-300 px-8 leading-relaxed">
+                <p class="mb-6 font-bold text-red-300 text-xl">⚠️ 尚未設定資料庫連線</p>
+                <p class="mb-8 text-sm text-gray-400">請選擇以下方式開始使用系統</p>
+                <div class="flex flex-col sm:flex-row justify-center gap-4">
+                    <button id="init-help-btn" class="modern-btn btn-secondary rounded-xl px-6 py-3 font-bold flex items-center justify-center gap-2">
+                        <span>📖 第一次使用？看說明</span>
+                    </button>
+                    <button id="init-config-btn" class="modern-btn btn-primary rounded-xl px-6 py-3 font-bold flex items-center justify-center gap-2">
+                        <span>⚙️ 設定 Firebase</span>
+                    </button>
+                </div>
+            </div>
         </div>
 
     </div>
 
     <!-- 所有彈出視窗 (Modals) -->
 
+    <!-- [新] 設定 Firebase Modal -->
+    <div id="config-modal" class="fixed inset-0 modal-backdrop flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-panel-dark w-full max-w-2xl p-8 rounded-2xl shadow-2xl flex flex-col" style="max-height: 90vh;">
+            <h2 class="font-exo text-3xl mb-2 text-white border-b border-white/20 pb-4">Firebase 設定</h2>
+            
+            <div class="overflow-y-auto custom-scrollbar flex-grow pr-2">
+                <!-- 1. 輸入區 -->
+                <div class="mb-6">
+                    <label class="block text-blue-300 text-sm font-bold mb-2">
+                        貼上 Firebase 設定物件
+                        <span class="text-gray-400 font-normal text-xs ml-2">(請複製 apiKey 到 appId 之間的 6 行內容)</span>
+                    </label>
+                    <textarea id="config-textarea" class="w-full h-40 p-4 bg-black/30 border border-white/20 rounded-lg text-green-400 font-mono text-sm focus:outline-none focus:border-blue-500 transition-colors" placeholder='apiKey: "AIza...",
+authDomain: "...",
+projectId: "...",
+storageBucket: "...",
+messagingSenderId: "...",
+appId: "..."'></textarea>
+                </div>
+
+                <div class="flex justify-between items-center mb-8">
+                    <button id="reset-config-btn" class="text-red-400 hover:text-red-300 text-sm font-bold border border-red-500/30 hover:bg-red-500/10 px-4 py-2 rounded-lg transition-colors">
+                        🗑️ 清除本機設定
+                    </button>
+                    <div class="space-x-3">
+                        <button id="close-config-btn" class="btn-glass rounded-lg px-6 py-2 font-bold">取消</button>
+                        <button id="save-config-btn" class="modern-btn btn-primary rounded-lg px-6 py-2 font-bold">儲存並連線</button>
+                    </div>
+                </div>
+
+                <!-- 2. 分享區 -->
+                <div id="share-config-section" class="bg-white/5 rounded-xl p-6 border border-white/10 hidden">
+                    <h3 class="font-bold text-lg text-yellow-300 mb-4 flex items-center">
+                        🔗 分享此設定給其他裝置
+                    </h3>
+                    <div class="flex flex-col md:flex-row gap-6 items-center">
+                        <div class="bg-white p-2 rounded-lg">
+                            <canvas id="config-qr-canvas"></canvas>
+                        </div>
+                        <div class="flex-grow w-full">
+                            <p class="text-sm text-gray-300 mb-2">掃描 QR Code 或複製連結，即可在手機或其他電腦上直接載入此設定。</p>
+                            <div class="bg-black/30 p-2 rounded border border-white/10 mb-2 flex items-center">
+                                <input type="text" id="config-share-url" class="w-full bg-transparent border-none outline-none text-gray-400 text-xs font-mono" readonly>
+                            </div>
+                            <button id="copy-config-link-btn" class="w-full modern-btn btn-secondary rounded-lg px-4 py-2 font-bold text-sm">
+                                📋 複製快速設定連結
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 說明 Modal -->
     <div id="help-modal" class="fixed inset-0 modal-backdrop flex items-center justify-center p-4 hidden z-50">
-        <div class="bg-white w-full max-w-3xl p-6 border-4 border-black rounded-lg pop-shadow flex flex-col" style="height: 90vh;">
-            <h2 class="font-anton text-3xl mb-4 flex-shrink-0">Firebase 設定說明</h2>
-            <div class="prose max-w-none overflow-y-auto flex-grow pr-2">
-                <h4>簡介</h4>
-                <p>新版本使用 Google Firebase 作為後端資料庫，取代了原有的 Google Sheets，提供更快速、更即時的資料同步體驗。設定過程完全免費，請依照以下步驟操作。</p>
-
+        <div class="glass-panel-dark w-full max-w-3xl p-8 rounded-2xl flex flex-col shadow-2xl" style="height: 85vh;">
+            <h2 class="font-exo text-3xl mb-6 text-white border-b border-white/20 pb-4">如何取得設定</h2>
+            <div class="prose max-w-none overflow-y-auto flex-grow pr-4 custom-scrollbar">
                 <h4>步驟 1：建立 Firebase 專案</h4>
                 <ol>
-                    <li>前往 <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 font-bold">Firebase 控制台</a>。</li>
-                    <li>點擊「建立專案」，並為您的專案命名（例如：「班級點數系統」）。</li>
-                    <li>您可以選擇是否啟用 Google Analytics (分析)，對於此工具並非必要，可以關閉以簡化設定。</li>
-                    <li>點擊「建立專案」並等待完成。</li>
+                    <li>前往 <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-400 hover:text-blue-300">Firebase 控制台</a>。</li>
+                    <li>點擊「建立專案」，並為您的專案命名。</li>
                 </ol>
 
                 <h4>步驟 2：建立 Firestore 資料庫</h4>
                 <ol>
-                    <li>在您的 Firebase 專案頁面，點擊左側選單的「建構」 > 「Firestore Database」。</li>
-                    <li>點擊「建立資料庫」。</li>
-                    <li>選擇「以<strong>測試模式</strong>啟動」。這會允許我們在初期讀寫資料。<strong>警告：測試模式會在30天後到期，屆時需要設定更安全的規則。</strong></li>
-                    <li>選擇離您最近的 Cloud Firestore 位置。</li>
-                    <li>點擊「啟用」。</li>
+                    <li>在左側選單點擊「建構」 > 「Firestore Database」。</li>
+                    <li>點擊「建立資料庫」，選擇「以<strong>測試模式</strong>啟動」。</li>
+                    <li>選擇位置後啟用。</li>
                 </ol>
 
-                <h4>步驟 3：取得 Firebase 設定檔 (firebaseConfig)</h4>
+                <h4>步驟 3：取得設定碼</h4>
                 <ol>
-                    <li>在專案主頁，點擊「專案總覽」旁邊的齒輪圖示 ⚙️，然後選擇「專案設定」。</li>
-                    <li>在「您的應用程式」區塊，點擊網頁圖示 ( <strong>&lt;/&gt;</strong> ) 來註冊一個新的網頁應用程式。</li>
-                    <li>為您的應用程式取一個暱稱（例如：「點數系統網頁」），然後點擊「註冊應用程式」。</li>
-                    <li>註冊完成後，您會看到一個包含 <code>firebaseConfig</code> 物件的程式碼區塊。<strong>請完整複製這個物件</strong>。它看起來像這樣：
-                        <pre><code>var firebaseConfig = {
-  apiKey: "AIzaSy...",
-  authDomain: "your-project-id.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project-id.appspot.com",
-  messagingSenderId: "...",
-  appId: "1:..."
-};</code></pre>
-                    </li>
-                </ol>
-
-                <h4>步驟 4：設定本網頁</h4>
-                <ol>
-                    <li>用文字編輯器打開這個 HTML 檔案。</li>
-                    <li>在程式碼中找到一個註解為「<strong>✨✨✨ 請在這裡貼上您的 Firebase 設定 ✨✨✨</strong>」的地方。</li>
-                    <li>將您剛剛複製的 <code>firebaseConfig</code> 物件，完整貼到指定位置，取代原有的範例。</li>
-                    <li>儲存檔案並在瀏覽器中重新整理網頁。</li>
-                    <li>完成！系統會自動在您的 Firestore 資料庫中建立所需的資料集合 (collections) 並加入範例資料。您現在可以開始使用了！</li>
+                    <li>點擊「專案總覽」旁的齒輪 ⚙️ > 「專案設定」。</li>
+                    <li>在下方「您的應用程式」區塊，點擊 <strong>&lt;/&gt;</strong> (Web) 圖示。</li>
+                    <li>註冊暱稱後，您會看到一段程式碼。</li>
+                    <li><strong>複製 `const firebaseConfig = { ... };` 大括號中間的 6 行內容。</strong></li>
+                    <li>回到本系統，點擊右上角的設定 (⚙️) 按鈕，貼上並儲存。</li>
                 </ol>
                 
-                <h4 style="color: #dc2626;">步驟 5：設定資料庫安全規則 (重要！)</h4>
-                <p>您在步驟2中啟用的「測試模式」將在 30 天後過期，導致資料庫無法存取。請依照以下步驟設定永久規則，以確保程式可以持續運作。</p>
-                <ol>
-                    <li>返回您的 <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 font-bold">Firebase 控制台</a>。</li>
-                    <li>點擊左側選單的「建構」 > 「Firestore Database」。</li>
-                    <li>選擇上方的「<strong>規則</strong>」分頁。</li>
-                    <li>將編輯器中現有的所有文字刪除，並貼上以下程式碼：</li>
-                </ol>
-                <div class="relative bg-gray-800 text-white p-4 rounded-md my-4">
-                    <button id="copy-rules-code-btn" class="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white font-bold py-1 px-3 rounded text-sm">複製</button>
-                    <pre><code id="rules-code-block" class="text-sm whitespace-pre-wrap">rules_version = '2';
+                <h4 style="color: #f87171;">步驟 4：設定權限 (重要！)</h4>
+                <div class="relative bg-black/50 text-gray-300 p-4 rounded-lg my-4 border border-white/10">
+                    <button id="copy-rules-code-btn" class="absolute top-2 right-2 bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded text-xs transition-colors">複製規則</button>
+                    <pre><code id="rules-code-block" class="text-sm font-mono text-green-400">rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
       allow read, write: if true;
     }
   }
-}
-</code></pre>
+}</code></pre>
                 </div>
-                <ol start="5">
-                    <li>點擊「<strong>發佈</strong>」按鈕。</li>
-                </ol>
-                <p class="p-3 bg-red-100 border-l-4 border-red-500 text-red-700 font-bold">
-                    <strong>⚠️ 安全警告：</strong>以上規則允許任何人讀取和寫入您的資料庫。這對於讓此單機 HTML 檔案正常運作是必要的，但也代表任何擁有您 Firebase 設定資訊的人都能修改您的資料。請勿在此系統中儲存任何敏感或私密的學生個資。
-                </p>
+                <p>請將上述規則貼到 Firestore 的「規則」分頁中並發佈。</p>
 
-                <hr class="my-6 border-black">
-
-                <h4>附錄：常見錯誤排除</h4>
-                <p><strong>問題：點擊「查看紀錄」時沒有反應或跳出錯誤。</strong></p>
+                <!-- 新增：常見錯誤排除 -->
+                <h4 style="margin-top: 2rem; color: #fbbf24;">附錄：常見錯誤排除</h4>
+                <p><strong>問題：</strong>點擊「查看紀錄」時沒有反應或跳出錯誤。</p>
                 <p><strong>原因：</strong>這是第一次查詢歷史紀錄時會發生的正常情況。Firebase 需要為「學生ID」和「時間戳」的組合查詢建立一個索引（就像書本的目錄），才能快速地排序與尋找資料。</p>
                 <p><strong>解決方法：</strong></p>
                 <ol>
-                    <li>在瀏覽器中按下 <strong>F12</strong> 鍵打開「開發人員工具」，並切換到「<strong>Console (主控台)</strong>」分頁。</li>
+                    <li>在瀏覽器中按下 <code>F12</code> 鍵打開「開發人員工具」，並切換到「Console (主控台)」分頁。</li>
                     <li>您應該會看到一條來自 Firebase 的錯誤訊息，內容包含 "The query requires an index"。</li>
-                    <li>這條錯誤訊息中會包含一個<strong>可點擊的連結</strong>，看起來像這樣：<code>https://console.firebase.google.com/v1/r/project/...</code></li>
-                    <li><strong>點擊那個連結</strong>。它會直接帶您前往 Firebase 網站的索引建立頁面，並且所有需要的設定都已自動填好。</li>
-                    <li>在 Firebase 頁面中，直接點擊「<strong>建立索引</strong>」按鈕。</li>
+                    <li>這條錯誤訊息中會包含一個可點擊的連結，看起來像這樣：<code>https://console.firebase.google.com/v1/r/project/...</code></li>
+                    <li>點擊那個連結。它會直接帶您前往 Firebase 網站的索引建立頁面，並且所有需要的設定都已自動填好。</li>
+                    <li>在 Firebase 頁面中，直接點擊「建立索引」按鈕。</li>
                     <li>索引建立需要幾分鐘的時間。您可以在 Firebase 網站上看到建立進度。</li>
                     <li>索引建立完成後，回到本頁面重新整理，「查看紀錄」功能現在應該就可以正常運作了。</li>
                 </ol>
             </div>
-            <div class="mt-4 text-right flex-shrink-0">
-                <button id="close-help-btn" class="pop-button pop-shadow-sm bg-blue-500 text-white border-2 border-black rounded-md px-6 py-2 font-bold">我懂了！</button>
+            <div class="mt-6 text-right pt-4 border-t border-white/10">
+                <button id="close-help-btn" class="modern-btn btn-primary rounded-lg px-8 py-2 font-bold">我懂了！</button>
             </div>
         </div>
     </div>
 
     <!-- 管理學生 Modal -->
     <div id="manage-student-modal" class="fixed inset-0 modal-backdrop flex items-center justify-center p-4 hidden z-50">
-        <div class="bg-green-300 w-full max-w-md p-6 border-4 border-black rounded-lg pop-shadow flex flex-col" style="height: 80vh;">
-            <h2 class="font-anton text-3xl mb-4 flex-shrink-0">管理學生</h2>
+        <div class="glass-panel-dark w-full max-w-md p-6 rounded-2xl flex flex-col shadow-2xl" style="height: 80vh;">
+            <h2 class="font-exo text-2xl mb-4 text-white">管理學生</h2>
             
-            <!-- 新增學生區塊 -->
-            <div class="mb-4 pb-4 border-b-2 border-black">
-                <h3 class="font-bold text-xl mb-2">新增學生</h3>
-                <p class="mb-2 text-sm">請輸入學生姓名，每位學生佔一行。可以只輸入姓名或「姓名，分組」的格式。</p>
-                <textarea id="student-name-input" class="w-full h-24 p-2 border-2 border-black rounded-md mb-2" placeholder="王小明
+            <div class="mb-4 pb-4 border-b border-white/20">
+                <h3 class="font-bold text-lg mb-2 text-blue-300">新增學生</h3>
+                <p class="mb-2 text-xs text-gray-400">格式：姓名 或 姓名,分組 (每行一位)</p>
+                <textarea id="student-name-input" class="w-full h-24 p-3 bg-black/30 border border-white/20 rounded-lg mb-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors" placeholder="王小明
 陳大華,第一組
-林美麗	第二組"></textarea>
-                <button id="confirm-add-student-btn" class="w-full pop-button pop-shadow-sm bg-blue-500 text-white border-2 border-black rounded-md px-6 py-2 font-bold">確認新增</button>
+林美麗,第二組"></textarea>
+                <button id="confirm-add-student-btn" class="w-full modern-btn btn-primary rounded-lg px-4 py-2 font-bold text-sm">確認新增</button>
             </div>
 
-            <!-- 刪除學生區塊 -->
             <div class="flex-grow overflow-y-auto">
-                 <h3 class="font-bold text-xl mb-2">刪除學生</h3>
+                 <h3 class="font-bold text-lg mb-2 text-red-300">學生列表</h3>
                  <div id="delete-student-list" class="space-y-2 pr-2">
-                    <!-- 學生列表將動態插入此處 -->
+                    <!-- 學生列表 -->
                  </div>
             </div>
 
-            <div class="mt-4 text-right flex-shrink-0">
-                <button id="close-manage-student-btn" class="pop-button pop-shadow-sm bg-gray-300 border-2 border-black rounded-md px-6 py-2 font-bold">關閉</button>
+            <div class="mt-4 text-right">
+                <button id="close-manage-student-btn" class="btn-glass rounded-lg px-6 py-2 font-bold text-sm transition-colors">關閉</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 班級設定 Modal -->
+    <div id="class-settings-modal" class="fixed inset-0 modal-backdrop flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-panel-dark w-full max-w-sm p-8 rounded-2xl shadow-2xl">
+            <h2 class="font-exo text-2xl mb-6 text-white text-center">班級設定</h2>
+            <div class="mb-6">
+                <label class="block text-blue-300 text-sm font-bold mb-2">班級名稱 (顯示於標題)</label>
+                <input type="text" id="class-name-input" class="w-full p-3 bg-black/30 border border-white/20 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors text-center font-bold text-lg">
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button id="close-class-settings-btn" class="btn-glass rounded-lg px-6 py-2 font-bold">取消</button>
+                <button id="save-class-settings-btn" class="modern-btn btn-primary rounded-lg px-6 py-2 font-bold">儲存設定</button>
             </div>
         </div>
     </div>
 
     <!-- 匯出成績 Modal -->
     <div id="export-modal" class="fixed inset-0 modal-backdrop flex items-center justify-center p-4 hidden z-50">
-        <div class="bg-teal-300 w-full max-w-sm p-6 border-4 border-black rounded-lg pop-shadow">
-            <h2 class="font-anton text-3xl mb-4">匯出成績</h2>
-            <p class="mb-6">請選擇匯出格式：</p>
+        <div class="glass-panel-dark w-full max-w-sm p-8 rounded-2xl shadow-2xl text-center">
+            <h2 class="font-exo text-3xl mb-6 text-white">匯出成績</h2>
             <div class="flex flex-col space-y-4">
-                <button id="export-original-btn" class="pop-button pop-shadow-sm bg-blue-500 text-white border-2 border-black rounded-md px-6 py-3 font-bold">按分組姓名順序匯出</button>
-                <button id="export-sorted-btn" class="pop-button pop-shadow-sm bg-green-500 text-white border-2 border-black rounded-md px-6 py-3 font-bold">按得分高低匯出</button>
+                <button id="export-original-btn" class="modern-btn btn-secondary rounded-xl px-6 py-4 font-bold shadow-lg">按分組姓名順序</button>
+                <button id="export-sorted-btn" class="modern-btn btn-primary rounded-xl px-6 py-4 font-bold shadow-lg">按得分高低</button>
+                <button id="export-logs-btn" class="modern-btn btn-accent rounded-xl px-6 py-4 font-bold shadow-lg">匯出完整歷史紀錄 (CSV)</button>
             </div>
-            <div class="mt-6 text-right">
-                <button id="cancel-export-btn" class="pop-button pop-shadow-sm bg-gray-300 border-2 border-black rounded-md px-6 py-2 font-bold">取消</button>
+            <div class="mt-8">
+                <button id="cancel-export-btn" class="btn-glass rounded-lg px-6 py-2 font-bold">取消</button>
             </div>
         </div>
     </div>
 
     <!-- 加減分 Modal -->
     <div id="points-modal" class="fixed inset-0 modal-backdrop flex items-center justify-center p-4 hidden z-50">
-        <div class="bg-purple-300 w-full max-w-lg p-6 border-4 border-black rounded-lg pop-shadow">
-            <h2 id="points-modal-title" class="font-anton text-3xl mb-4 text-center">給予點數</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="glass-panel-dark w-full max-w-2xl p-6 rounded-2xl shadow-2xl border border-white/20">
+            <h2 id="points-modal-title" class="font-exo text-3xl mb-6 text-center text-white font-bold tracking-wide">給予點數</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- 加分項目 -->
-                <div>
-                    <h3 class="font-bold text-xl text-green-700 mb-2">加分項目</h3>
-                    <div id="positive-behaviors" class="space-y-3 max-h-60 overflow-y-auto pr-2"></div>
+                <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <h3 class="font-bold text-xl text-green-400 mb-3 flex items-center"><span class="text-2xl mr-2">👍</span> 加分項目</h3>
+                    <div id="positive-behaviors" class="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar"></div>
                 </div>
                 <!-- 扣分項目 -->
-                <div>
-                    <h3 class="font-bold text-xl text-red-700 mb-2">待改進項目</h3>
-                    <div id="negative-behaviors" class="space-y-3 max-h-60 overflow-y-auto pr-2"></div>
+                <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <h3 class="font-bold text-xl text-red-400 mb-3 flex items-center"><span class="text-2xl mr-2">⚠️</span> 待改進</h3>
+                    <div id="negative-behaviors" class="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar"></div>
                 </div>
             </div>
-            <div class="mt-6 flex justify-center space-x-4">
-                 <button id="view-history-btn" class="pop-button pop-shadow-sm bg-yellow-400 border-2 border-black rounded-md px-4 py-2 font-bold">查看紀錄</button>
-                 <button id="close-points-modal-btn" class="pop-button pop-shadow-sm bg-gray-300 border-2 border-black rounded-md px-4 py-2 font-bold">關閉</button>
+            <div class="mt-8 flex justify-center space-x-4">
+                 <button id="view-history-btn" class="modern-btn btn-glass text-yellow-300 border-yellow-300/30 hover:bg-yellow-300/10 rounded-lg px-6 py-2 font-bold">查看紀錄</button>
+                 <button id="close-points-modal-btn" class="modern-btn btn-glass rounded-lg px-6 py-2 font-bold">關閉視窗</button>
             </div>
         </div>
     </div>
 
     <!-- 歷史紀錄 Modal -->
     <div id="history-modal" class="fixed inset-0 modal-backdrop flex items-center justify-center p-4 hidden z-50">
-        <div class="bg-pink-300 w-full max-w-md p-6 border-4 border-black rounded-lg pop-shadow flex flex-col" style="height: 70vh;">
-            <h2 id="history-modal-title" class="font-anton text-3xl mb-4 flex-shrink-0">歷史紀錄</h2>
-            <div id="history-list" class="flex-grow overflow-y-auto bg-white/50 p-2 rounded-md border-2 border-black">
+        <div class="glass-panel-dark w-full max-w-md p-6 rounded-2xl flex flex-col shadow-2xl" style="height: 70vh;">
+            <h2 id="history-modal-title" class="font-exo text-2xl mb-4 text-white">歷史紀錄</h2>
+            <div id="history-list" class="flex-grow overflow-y-auto bg-black/20 p-4 rounded-xl border border-white/10 custom-scrollbar">
                 <!-- 紀錄將插入此處 -->
             </div>
-            <div class="mt-4 text-right flex-shrink-0">
-                <button id="close-history-modal-btn" class="pop-button pop-shadow-sm bg-blue-500 text-white border-2 border-black rounded-md px-6 py-2 font-bold">關閉</button>
+            <div class="mt-4 text-right">
+                <button id="close-history-modal-btn" class="modern-btn btn-primary rounded-lg px-6 py-2 font-bold">關閉</button>
             </div>
         </div>
     </div>
     
     <!-- 管理行為 Modal -->
     <div id="manage-behaviors-modal" class="fixed inset-0 modal-backdrop flex items-center justify-center p-4 hidden z-50">
-        <div class="bg-orange-300 w-full max-w-2xl p-6 border-4 border-black rounded-lg pop-shadow flex flex-col" style="height: 80vh;">
-            <h2 class="font-anton text-3xl mb-4 flex-shrink-0">管理行為項目</h2>
-            <div class="flex-grow overflow-y-auto space-y-4" id="behavior-list-editor">
-                <!-- 行為編輯器將插入此處 -->
+        <div class="glass-panel-dark w-full max-w-2xl p-6 rounded-2xl flex flex-col shadow-2xl" style="height: 80vh;">
+            <h2 class="font-exo text-2xl mb-4 text-white">管理行為項目</h2>
+            <div class="flex-grow overflow-y-auto space-y-3 p-2" id="behavior-list-editor">
+                <!-- 行為編輯器 -->
             </div>
-            <div class="mt-4 pt-4 border-t-2 border-black flex-shrink-0 flex justify-between">
-                <button id="add-new-behavior-btn" class="pop-button pop-shadow-sm bg-green-400 border-2 border-black rounded-md px-4 py-2 font-bold">新增一項</button>
-                <div>
-                    <button id="cancel-behaviors-btn" class="pop-button pop-shadow-sm bg-gray-300 border-2 border-black rounded-md px-6 py-2 font-bold">取消</button>
-                    <button id="save-behaviors-btn" class="pop-button pop-shadow-sm bg-blue-500 text-white border-2 border-black rounded-md px-6 py-2 font-bold">儲存變更</button>
+            <div class="mt-4 pt-4 border-t border-white/20 flex justify-between items-center">
+                <button id="add-new-behavior-btn" class="modern-btn btn-glass text-green-400 border-green-400/30 hover:bg-green-400/10 rounded-lg px-4 py-2 font-bold">+ 新增一項</button>
+                <div class="space-x-2">
+                    <button id="cancel-behaviors-btn" class="btn-glass rounded-lg px-4 py-2 font-bold">取消</button>
+                    <button id="save-behaviors-btn" class="modern-btn btn-primary rounded-lg px-6 py-2 font-bold">儲存變更</button>
                 </div>
             </div>
         </div>
@@ -389,49 +615,99 @@ service cloud.firestore {
     
     <!-- 家長模式連結 Modal -->
     <div id="parent-link-modal" class="fixed inset-0 modal-backdrop flex items-center justify-center p-4 hidden z-50">
-        <div class="bg-green-300 w-full max-w-md p-6 border-4 border-black rounded-lg pop-shadow">
-            <h2 class="font-anton text-3xl mb-4 text-center">家長檢視連結</h2>
-            <div class="text-center mb-4">
-                <p class="mb-2 font-bold">掃描QR碼或複製連結分享給家長：</p>
-                <div id="qr-code-container" class="flex justify-center mb-4">
-                    <canvas id="qr-canvas" class="border-2 border-black"></canvas>
-                </div>
-                <div class="bg-white border-2 border-black rounded-md p-3 mb-4">
-                    <input type="text" id="parent-url-display" class="w-full text-sm text-center bg-transparent border-none outline-none" readonly>
-                </div>
-                <button id="copy-parent-url-btn" class="w-full pop-button pop-shadow-sm bg-blue-500 text-white border-2 border-black rounded-md px-6 py-3 font-bold mb-2">📋 複製連結</button>
-                <p class="text-xs text-gray-600">家長使用此連結只能檢視，無法修改點數</p>
+        <div class="glass-panel-dark w-full max-w-md p-8 rounded-2xl shadow-2xl text-center">
+            <h2 class="font-exo text-2xl mb-4 text-white">家長檢視連結</h2>
+            <div class="flex justify-center mb-6 bg-white p-4 rounded-xl w-max mx-auto">
+                <canvas id="qr-canvas"></canvas>
             </div>
-            <div class="text-right">
-                <button id="close-parent-link-btn" class="pop-button pop-shadow-sm bg-gray-300 border-2 border-black rounded-md px-6 py-2 font-bold">關閉</button>
+            <div class="bg-black/30 border border-white/20 rounded-lg p-3 mb-4 flex items-center">
+                <input type="text" id="parent-url-display" class="w-full text-sm text-center bg-transparent border-none outline-none text-blue-300 font-mono" readonly>
+            </div>
+            <button id="copy-parent-url-btn" class="w-full modern-btn btn-primary rounded-xl px-6 py-3 font-bold mb-3 shadow-lg">📋 複製連結</button>
+            <p class="text-xs text-gray-400">家長使用此連結僅能檢視點數</p>
+            <div class="mt-4">
+                <button id="close-parent-link-btn" class="text-gray-400 hover:text-white text-sm underline">關閉視窗</button>
             </div>
         </div>
     </div>
     
     <!-- 頭像管理 Modal -->
     <div id="manage-avatars-modal" class="fixed inset-0 modal-backdrop flex items-center justify-center p-4 hidden z-50">
-        <div class="bg-cyan-300 w-full max-w-4xl p-6 border-4 border-black rounded-lg pop-shadow flex flex-col" style="height: 80vh;">
-            <h2 class="font-anton text-3xl mb-4 flex-shrink-0">學生頭像管理</h2>
-            <p class="text-sm mb-4 text-gray-700">點擊學生頭像即可上傳新圖片，圖片將自動壓縮為寬度200px</p>
+        <div class="glass-panel-dark w-full max-w-4xl p-6 rounded-2xl flex flex-col shadow-2xl" style="height: 80vh;">
+            <h2 class="font-exo text-2xl mb-2 text-white">學生頭像管理</h2>
+            <p class="text-sm mb-6 text-gray-400">點擊學生頭像上傳新圖片 (自動壓縮)</p>
             
-            <!-- 學生頭像網格 -->
-            <div class="flex-grow overflow-y-auto">
+            <div class="flex-grow overflow-y-auto custom-scrollbar">
                 <div id="avatar-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    <!-- 學生頭像卡片將動態插入此處 -->
+                    <!-- 學生頭像卡片 -->
                 </div>
             </div>
             
-            <!-- 隱藏的文件上傳輸入 -->
             <input type="file" id="avatar-file-input" accept="image/*" class="hidden">
             
-            <div class="mt-4 text-right flex-shrink-0">
-                <button id="close-avatars-btn" class="pop-button pop-shadow-sm bg-gray-300 border-2 border-black rounded-md px-6 py-2 font-bold">關閉</button>
+            <div class="mt-6 text-right">
+                <button id="close-avatars-btn" class="btn-glass rounded-lg px-8 py-2 font-bold">完成</button>
             </div>
         </div>
     </div>
     
     <script>
     document.addEventListener('DOMContentLoaded', () => {
+        // --- 核心邏輯：設定管理 (Config Management) ---
+
+        // 1. Hardcoded Default (優先級 2)
+        // ✨✨✨ 使用者請直接修改下方引號內的數值，填入您真實的 Firebase 設定即可 (無需更動變數名稱或大括號) ✨✨✨
+        const hardcodedConfig = {
+  apiKey: "AIzaSyCyW3P6Xekwf_DLndgZt4o21sVMla_5BJw",
+  authDomain: "ckesclassdojo.firebaseapp.com",
+  projectId: "ckesclassdojo",
+  storageBucket: "ckesclassdojo.firebasestorage.app",
+  messagingSenderId: "613646301956",
+  appId: "1:613646301956:web:6b1a37196ce3b591e8ee51"
+        };
+        // ✨✨✨ END OF 硬編碼設定 ✨✨✨
+
+        // Config 處理函式
+        const getConfig = () => {
+            // Priority 1: URL Parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedConfig = urlParams.get('config');
+            if (encodedConfig) {
+                try {
+                    const decoded = JSON.parse(atob(encodedConfig));
+                    if (decoded.apiKey && decoded.projectId) {
+                        localStorage.setItem('firebaseConfig', JSON.stringify(decoded));
+                        // 清除 URL 參數並重新整理
+                        urlParams.delete('config');
+                        const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+                        window.history.replaceState({}, '', newUrl);
+                        return decoded;
+                    }
+                } catch (e) {
+                    console.error('URL Config 解析失敗', e);
+                }
+            }
+
+            // Priority 2: Hardcoded
+            if (hardcodedConfig.apiKey !== "demo" && hardcodedConfig.projectId !== "demo") {
+                return hardcodedConfig;
+            }
+
+            // Priority 3: LocalStorage
+            const localConfig = localStorage.getItem('firebaseConfig');
+            if (localConfig) {
+                try {
+                    return JSON.parse(localConfig);
+                } catch (e) {
+                    console.error('LocalStorage Config 解析失敗');
+                }
+            }
+
+            return null; // No valid config found
+        };
+
+        const activeConfig = getConfig();
+
         // --- 元素選擇 ---
         const getEl = (id) => document.getElementById(id);
         const app = {
@@ -444,8 +720,11 @@ service cloud.firestore {
                 history: getEl('history-modal'),
                 manageBehaviors: getEl('manage-behaviors-modal'),
                 parentLink: getEl('parent-link-modal'),
+                classSettings: getEl('class-settings-modal'),
+                config: getEl('config-modal'), // 新增
             },
             buttons: {
+                themeToggle: getEl('theme-toggle-btn'),
                 sort: getEl('sort-btn'),
                 teacherPanel: getEl('teacher-panel-btn'),
                 parentLink: getEl('parent-link-btn'),
@@ -459,6 +738,7 @@ service cloud.firestore {
                 exportGrades: getEl('export-grades-btn'),
                 exportOriginal: getEl('export-original-btn'),
                 exportSorted: getEl('export-sorted-btn'),
+                exportLogs: getEl('export-logs-btn'),
                 cancelExport: getEl('cancel-export-btn'),
                 closePoints: getEl('close-points-modal-btn'),
                 viewHistory: getEl('view-history-btn'),
@@ -470,11 +750,25 @@ service cloud.firestore {
                 addNewBehavior: getEl('add-new-behavior-btn'),
                 copyParentUrl: getEl('copy-parent-url-btn'),
                 closeParentLink: getEl('close-parent-link-btn'),
-                copyRulesCode: getEl('copy-rules-code-btn'), // 新增按鈕
+                copyRulesCode: getEl('copy-rules-code-btn'),
+                classSettings: getEl('class-settings-btn'),
+                saveClassSettings: getEl('save-class-settings-btn'),
+                closeClassSettings: getEl('close-class-settings-btn'),
+                // Config 相關按鈕
+                config: getEl('config-btn'),
+                closeConfig: getEl('close-config-btn'),
+                saveConfig: getEl('save-config-btn'),
+                resetConfig: getEl('reset-config-btn'),
+                copyConfigLink: getEl('copy-config-link-btn'),
+                initConfig: getEl('init-config-btn'), // 初始畫面按鈕
+                initHelp: getEl('init-help-btn'), // 初始畫面按鈕
             },
             inputs: {
                 studentName: getEl('student-name-input'),
                 avatarFile: getEl('avatar-file-input'),
+                className: getEl('class-name-input'),
+                configText: getEl('config-textarea'),
+                configShareUrl: getEl('config-share-url'),
             },
             containers: {
                 controlPanel: getEl('control-panel'),
@@ -495,16 +789,21 @@ service cloud.firestore {
                 behaviorListEditor: getEl('behavior-list-editor'),
                 deleteStudentList: getEl('delete-student-list'),
                 avatarGrid: getEl('avatar-grid'),
+                shareConfigSection: getEl('share-config-section'),
             },
             sounds: {
-                positive: () => new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.2, release: 0.2 } }).toDestination().triggerAttackRelease("C5", "8n"),
-                negative: () => new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.3, release: 0.3 } }).toDestination().triggerAttackRelease("A2", "8n"),
-                click: () => new Tone.MembraneSynth({ pitchDecay: 0.01, octaves: 2 }).toDestination().triggerAttackRelease("C2", "8n", Tone.now())
+                positive: () => new Tone.PolySynth(Tone.Synth).toDestination().triggerAttackRelease(["C5", "E5", "G5"], "8n"),
+                negative: () => new Tone.Synth({ oscillator: { type: 'sawtooth' } }).toDestination().triggerAttackRelease("G2", "4n"),
+                click: () => new Tone.MembraneSynth().toDestination().triggerAttackRelease("C2", "32n")
             },
             titles: {
                 className: getEl('class-name-title'),
                 pointsModal: getEl('points-modal-title'),
                 historyModal: getEl('history-modal-title'),
+            },
+            icons: {
+                sun: getEl('icon-sun'),
+                moon: getEl('icon-moon'),
             }
         };
 
@@ -517,7 +816,7 @@ service cloud.firestore {
             document.body.classList.add('parent-mode');
             const banner = document.createElement('div');
             banner.className = 'parent-mode-banner';
-            banner.textContent = '👨‍👩‍👧‍👦 家長檢視模式 - 僅供查看，無法修改';
+            banner.textContent = '👀 檢視模式 (View Only)';
             document.body.insertBefore(banner, document.body.firstChild);
         }
 
@@ -530,26 +829,38 @@ service cloud.firestore {
             currentStudentId: null,
             currentGroupName: null,
             className: 'Classroom Points!',
-            sortOrder: 'byName', // 'byName', 'byPoints', or 'byGroup'
-            activeTab: 'students', // 'students' or 'groups'
+            sortOrder: 'byName',
+            activeTab: 'students',
             isParentMode: isParentMode,
             isTeacherMode: isTeacherMode,
             currentUploadingStudentId: null,
-            unsubscribeListeners: [] // 儲存監聽器以供清理
+            unsubscribeListeners: [],
+            theme: localStorage.getItem('theme') || 'dark'
         };
 
-        // --- Firebase 設定 ---
-        // ✨✨✨ 請在這裡貼上您的 Firebase 設定 ✨✨✨
-        // 從 Firebase 專案設定中複製您的 firebaseConfig 物件並貼到此處
-        const firebaseConfig = {
-  apiKey: "AIzaSyCyW3P6Xekwf_DLndgZt4o21sVMla_5BJw",
-  authDomain: "ckesclassdojo.firebaseapp.com",
-  projectId: "ckesclassdojo",
-  storageBucket: "ckesclassdojo.firebasestorage.app",
-  messagingSenderId: "613646301956",
-  appId: "1:613646301956:web:6b1a37196ce3b591e8ee51"
+        // --- 主題切換邏輯 ---
+        const applyTheme = (theme) => {
+            if (theme === 'light') {
+                document.documentElement.setAttribute('data-theme', 'light');
+                app.icons.sun.classList.remove('hidden');
+                app.icons.moon.classList.add('hidden');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                app.icons.sun.classList.add('hidden');
+                app.icons.moon.classList.remove('hidden');
+            }
+            state.theme = theme;
+            localStorage.setItem('theme', theme);
         };
-        // ✨✨✨ END OF Firebase 設定 ✨✨✨
+
+        const toggleTheme = () => {
+            playSound(app.sounds.click);
+            const newTheme = state.theme === 'dark' ? 'light' : 'dark';
+            applyTheme(newTheme);
+        };
+
+        // 初始化主題
+        applyTheme(state.theme);
 
         // --- 通用函式 ---
         const toggleModal = (modal, show) => {
@@ -569,7 +880,7 @@ service cloud.firestore {
         };
 
         const exportToCsv = (studentData, filename) => {
-            let csvContent = "data:text/csv;charset=utf-8,﻿"; // BOM for Excel
+            let csvContent = "data:text/csv;charset=utf-8,\ufeff";
             csvContent += "分組,學生姓名,總得分\n";
             studentData.forEach(student => {
                 const group = student.group || '未分組';
@@ -590,7 +901,7 @@ service cloud.firestore {
             const hasStudents = state.students && state.students.length > 0;
             app.containers.initialPrompt.classList.toggle('hidden', !isLoading && hasStudents);
             if (isLoading) {
-                app.containers.loadingText.textContent = "正在從 Firebase 載入資料...";
+                app.containers.loadingText.textContent = "Connecting...";
                 app.containers.spinner.classList.remove('hidden');
                 app.containers.setupPrompt.classList.add('hidden');
             }
@@ -601,30 +912,27 @@ service cloud.firestore {
             const R = (s) => { s = Math.sin(s) * 10000; return s - Math.floor(s); };
             const seedNum = S(seed);
             
-            const colors = ['#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff', '#ff9f40'];
+            const colors = ['#f472b6', '#60a5fa', '#facc15', '#4ade80', '#a78bfa', '#fb923c'];
             const bgColor = colors[Math.floor(R(seedNum) * colors.length)];
-            const eyeType = Math.floor(R(seedNum+1) * 3);
-            const mouthType = Math.floor(R(seedNum+2) * 3);
             
-            let eyes = '';
-            if (eyeType === 0) eyes = `<circle cx="35" cy="40" r="8" fill="white"/><circle cx="35" cy="40" r="4" fill="black"/><circle cx="65" cy="40" r="8" fill="white"/><circle cx="65" cy="40" r="4" fill="black"/>`;
-            else if (eyeType === 1) eyes = `<rect x="28" y="35" width="15" height="10" fill="white" transform="rotate(-10 35 40)"/><rect x="60" y="35" width="15" height="10" fill="white" transform="rotate(10 65 40)"/>`;
-            else eyes = `<path d="M30 45 C 35 35, 45 35, 50 45" stroke="white" stroke-width="6" fill="none"/><path d="M55 45 C 60 35, 70 35, 75 45" stroke="white" stroke-width="6" fill="none"/>`;
-
-            let mouth = '';
-            if (mouthType === 0) mouth = `<path d="M35 70 Q 50 85, 65 70" stroke="white" stroke-width="5" fill="none"/>`;
-            else if (mouthType === 1) mouth = `<rect x="40" y="70" width="20" height="8" fill="white" rx="3"/>`;
-            else mouth = `<circle cx="50" cy="75" r="10" fill="white"/>`;
-
-            return `data:image/svg+xml,${encodeURIComponent(`<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="20" fill="${bgColor}" />${eyes}${mouth}</svg>`)}`;
+            return `data:image/svg+xml,${encodeURIComponent(`
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:${bgColor};stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:${bgColor};stop-opacity:0.6" />
+                        </linearGradient>
+                    </defs>
+                    <rect width="100" height="100" rx="30" fill="url(#grad)" />
+                    <circle cx="50" cy="40" r="15" fill="white" fill-opacity="0.9" />
+                    <path d="M20 90 Q 50 50, 80 90" stroke="white" stroke-width="0" fill="white" fill-opacity="0.9" />
+                </svg>`)}`;
         };
 
         const switchTab = (tabName) => {
             state.activeTab = tabName;
             app.containers.studentsTab.classList.toggle('active-tab', tabName === 'students');
             app.containers.groupsTab.classList.toggle('active-tab', tabName === 'groups');
-            app.containers.studentsTab.style.backgroundColor = tabName === 'students' ? '#facc15' : '#d1d5db';
-            app.containers.groupsTab.style.backgroundColor = tabName === 'groups' ? '#facc15' : '#d1d5db';
             app.containers.studentsView.classList.toggle('hidden', tabName !== 'students');
             app.containers.groupsView.classList.toggle('hidden', tabName !== 'groups');
             if (tabName === 'groups') renderGroupsGrid();
@@ -635,8 +943,12 @@ service cloud.firestore {
             app.containers.studentGrid.innerHTML = '';
             if (state.students.length === 0 && !state.isLoading) {
                  app.containers.initialPrompt.classList.remove('hidden');
-                 app.containers.loadingText.textContent = "班級裡還沒有學生喔！";
-                 app.containers.setupPrompt.innerHTML = `<p class="mt-2">請點擊 🧑‍🏫 按鈕，然後選擇「管理學生」來新增第一批學生。</p>`;
+                 app.containers.loadingText.textContent = "班級還是空的";
+                 app.containers.setupPrompt.classList.add('hidden'); // Ensure setup prompt is hidden if connected but empty
+                 app.containers.setupPrompt.innerHTML = ""; // Clear any old content
+                 const emptyMsg = document.createElement('div');
+                 emptyMsg.innerHTML = `<p class="mt-4 text-gray-300">請點擊上方的 🧑‍🏫 按鈕，開始管理學生。</p>`;
+                 app.containers.initialPrompt.appendChild(emptyMsg);
                  app.containers.spinner.classList.add('hidden');
                  return;
             }
@@ -648,8 +960,8 @@ service cloud.firestore {
                 sortedStudents.sort((a, b) => b.points - a.points);
             } else if (state.sortOrder === 'byGroup') {
                 sortedStudents.sort((a, b) => {
-                    const groupA = a.group || '￿';
-                    const groupB = b.group || '￿';
+                    const groupA = a.group || '';
+                    const groupB = b.group || '';
                     if (groupA === groupB) return a.name.localeCompare(b.name, 'zh-Hant');
                     return groupA.localeCompare(groupB, 'zh-Hant');
                 });
@@ -657,32 +969,35 @@ service cloud.firestore {
             
             sortedStudents.forEach(student => {
                 const card = document.createElement('div');
-                card.className = 'student-card bg-white border-4 border-black rounded-lg p-3 flex flex-col items-center cursor-pointer pop-shadow relative';
+                card.className = 'student-card glass-panel rounded-2xl p-4 flex flex-col items-center cursor-pointer relative overflow-hidden';
                 card.dataset.studentId = student.id;
 
                 const pointChangeEl = document.createElement('div');
-                pointChangeEl.className = 'point-change-indicator absolute text-3xl font-anton font-bold pointer-events-none opacity-0';
+                pointChangeEl.className = 'point-change-indicator absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-5xl font-black font-exo pointer-events-none opacity-0 z-20';
                 
                 const avatar = document.createElement('img');
                 avatar.src = student.avatar || generateAvatar(student.name);
-                avatar.alt = `${student.name} 的頭像`;
-                avatar.className = 'w-24 h-24 rounded-md border-2 border-black mb-2 object-cover';
+                avatar.alt = student.name;
+                avatar.className = 'w-20 h-20 rounded-2xl shadow-lg mb-3 object-cover border-2 border-white/20';
 
                 const nameContainer = document.createElement('div');
-                nameContainer.className = 'text-center w-full';
+                nameContainer.className = 'text-center w-full z-10';
                 
                 if (student.group) {
-                    nameContainer.innerHTML = `<p class="font-bold text-lg truncate"><span class="text-sm text-gray-600 font-normal">${student.group}</span><span class="ml-1">${student.name}</span></p>`;
+                    nameContainer.innerHTML = `<p class="font-bold text-lg text-white truncate"><span class="text-xs text-blue-300 font-light block mb-1">${student.group}</span>${student.name}</p>`;
                 } else {
-                    nameContainer.innerHTML = `<p class="font-bold text-center text-lg truncate w-full">${student.name}</p>`;
+                    nameContainer.innerHTML = `<p class="font-bold text-center text-lg text-white truncate w-full mt-2">${student.name}</p>`;
                 }
 
                 const points = document.createElement('p');
-                points.className = 'font-anton text-4xl text-blue-600';
+                points.className = `font-exo text-4xl font-black mt-2 drop-shadow-lg transition-colors duration-300 ${student.points >= 0 ? 'text-green-400' : 'text-red-400'}`;
                 points.textContent = student.points;
                 points.id = `points-${student.id}`;
                 
-                card.append(pointChangeEl, avatar, nameContainer, points);
+                const glow = document.createElement('div');
+                glow.className = 'absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent to-black/20 pointer-events-none';
+
+                card.append(pointChangeEl, avatar, nameContainer, points, glow);
                 card.addEventListener('click', () => {
                     playSound(app.sounds.click);
                     openPointsModal(student.id);
@@ -701,33 +1016,36 @@ service cloud.firestore {
             });
             
             if (Object.keys(groups).length === 0 || (Object.keys(groups).length === 1 && groups['未分組'])) {
-                app.containers.groupsGrid.innerHTML = '<p class="text-center text-gray-600 p-8 col-span-full">沒有分組資料。請在管理學生時，使用「姓名,分組」格式來設定分組。</p>';
+                app.containers.groupsGrid.innerHTML = '<p class="text-center text-gray-400 p-8 col-span-full text-lg">沒有分組資料。</p>';
                 return;
             }
             
-            const groupColors = ['from-pink-300 to-purple-300', 'from-blue-300 to-indigo-300', 'from-green-300 to-teal-300', 'from-yellow-300 to-orange-300', 'from-red-300 to-pink-300', 'from-purple-300 to-violet-300', 'from-cyan-300 to-blue-300', 'from-lime-300 to-green-300'];
+            const groupGradients = [
+                'from-pink-500/20 to-rose-500/20', 'from-blue-500/20 to-cyan-500/20', 'from-emerald-500/20 to-teal-500/20', 
+                'from-amber-500/20 to-orange-500/20', 'from-violet-500/20 to-purple-500/20'
+            ];
             
             Object.entries(groups).forEach(([groupName, students], index) => {
                 if (groupName === '未分組' && Object.keys(groups).length > 1) return;
                 const groupCard = document.createElement('div');
-                const colorClass = groupColors[index % groupColors.length];
-                groupCard.className = `group-card bg-gradient-to-br ${colorClass} border-4 border-black rounded-lg p-4 cursor-pointer pop-shadow`;
+                const gradClass = groupGradients[index % groupGradients.length];
+                groupCard.className = `group-card glass-panel bg-gradient-to-br ${gradClass} rounded-2xl p-6 cursor-pointer hover:border-white/40 transition-all hover:-translate-y-1 relative overflow-hidden`;
                 
                 const totalPoints = students.reduce((sum, s) => sum + s.points, 0);
                 const avgPoints = students.length > 0 ? Math.round(totalPoints / students.length) : 0;
                 
                 let studentListHtml = '';
                 students.forEach(student => {
-                    studentListHtml += `<div class="flex justify-between items-center py-1 px-2 bg-white/30 rounded mb-1"><span class="font-bold">${student.name}</span><span class="font-anton text-lg text-blue-600">${student.points}</span></div>`;
+                    studentListHtml += `<div class="flex justify-between items-center py-2 px-3 bg-black/20 rounded-lg mb-2 border border-white/5"><span class="font-medium text-gray-200">${student.name}</span><span class="font-exo font-bold ${student.points >=0 ? 'text-green-400' : 'text-red-400'}">${student.points}</span></div>`;
                 });
 
                 groupCard.innerHTML = `
-                    <h3 class="font-anton text-2xl mb-3 text-center">${groupName}</h3>
-                    <div class="mb-3">${studentListHtml}</div>
-                    <div class="text-center border-t-2 border-black pt-2">
-                        <p class="text-sm"><span class="font-bold">人數:</span> ${students.length}</p>
-                        <p class="text-sm"><span class="font-bold">總分:</span> ${totalPoints}</p>
-                        <p class="text-sm"><span class="font-bold">平均:</span> ${avgPoints}</p>
+                    <h3 class="font-exo text-2xl mb-4 text-center font-bold text-white tracking-wider border-b border-white/10 pb-2">${groupName}</h3>
+                    <div class="mb-4 max-h-48 overflow-y-auto custom-scrollbar pr-1">${studentListHtml}</div>
+                    <div class="grid grid-cols-3 gap-2 text-center pt-2 border-t border-white/10">
+                        <div><p class="text-xs text-gray-400 uppercase">人數</p><p class="font-bold text-white text-lg">${students.length}</p></div>
+                        <div><p class="text-xs text-gray-400 uppercase">總分</p><p class="font-bold text-blue-300 text-lg">${totalPoints}</p></div>
+                        <div><p class="text-xs text-gray-400 uppercase">平均</p><p class="font-bold text-purple-300 text-lg">${avgPoints}</p></div>
                     </div>
                 `;
                 groupCard.addEventListener('click', () => {
@@ -741,15 +1059,15 @@ service cloud.firestore {
         const renderStudentDeletionList = () => {
             app.containers.deleteStudentList.innerHTML = '';
             if (state.students.length === 0) {
-                app.containers.deleteStudentList.innerHTML = '<p class="text-center text-gray-600 p-4">目前沒有學生可刪除。</p>';
+                app.containers.deleteStudentList.innerHTML = '<p class="text-center text-gray-500 p-4">目前沒有學生。</p>';
                 return;
             }
             
             let sortedStudents = [...state.students].sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
             sortedStudents.forEach(student => {
                 const item = document.createElement('div');
-                item.className = 'flex items-center justify-between bg-white/50 p-2 rounded-md';
-                item.innerHTML = `<span class="font-bold">${student.name}</span><button data-id="${student.id}" class="delete-student-btn pop-button bg-red-500 text-white text-xs font-bold py-1 px-3 rounded-md border-2 border-black">刪除</button>`;
+                item.className = 'flex items-center justify-between bg-white/5 p-3 rounded-lg mb-2 border border-white/10';
+                item.innerHTML = `<span class="font-bold text-gray-200">${student.name}</span><button data-id="${student.id}" class="delete-student-btn bg-red-500/80 hover:bg-red-600 text-white text-xs font-bold py-1 px-3 rounded shadow transition-colors">刪除</button>`;
                 app.containers.deleteStudentList.appendChild(item);
             });
             
@@ -758,7 +1076,94 @@ service cloud.firestore {
             });
         };
 
-        // --- Modal 開啟/關閉邏輯 ---
+        // --- Config Modal Logic ---
+        const openConfigModal = () => {
+            playSound(app.sounds.click);
+            // 填入當前設定到 textarea (如果是 demo 則留空或顯示 placeholder)
+            if (activeConfig) {
+                 // 這裡只做顯示，為了安全或方便，可以選擇不顯示 Key，但為了讓使用者好修改，我們將其還原為字串
+                 app.inputs.configText.value = Object.entries(activeConfig)
+                    .map(([k, v]) => `${k}: "${v}"`)
+                    .join(',\n');
+                 
+                 // 生成分享連結與 QR Code
+                 const configString = JSON.stringify(activeConfig);
+                 const base64Config = btoa(configString);
+                 
+                 // 判斷當前模式
+                 const currentMode = isTeacherMode ? 'teacher' : 'parent';
+                 const shareUrl = `${window.location.origin}${window.location.pathname}?config=${base64Config}&mode=${currentMode}`;
+                 
+                 app.inputs.configShareUrl.value = shareUrl;
+                 app.containers.shareConfigSection.classList.remove('hidden');
+                 
+                 // 生成 Config QR Code
+                 try {
+                     if (typeof qrcode !== 'undefined') {
+                         const qr = qrcode(0, 'L'); // 'L' error correction for longer data
+                         qr.addData(shareUrl);
+                         qr.make();
+                         const canvas = getEl('config-qr-canvas');
+                         canvas.width = 120;
+                         canvas.height = 120;
+                         qr.renderTo2dContext(canvas.getContext('2d'), 5);
+                     }
+                 } catch (e) {
+                     console.error('Config QR Gen Error', e);
+                 }
+
+            } else {
+                app.inputs.configText.value = '';
+                app.containers.shareConfigSection.classList.add('hidden');
+            }
+            toggleModal(app.modals.config, true);
+        };
+
+        const handleSaveConfig = () => {
+            const text = app.inputs.configText.value;
+            const newConfig = {};
+            
+            // 寬鬆解析邏輯：尋找 key: "value" 或 key: 'value'
+            const keys = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+            let found = false;
+
+            keys.forEach(key => {
+                // Regex 說明: 匹配 key，冒號，可能的空白，引號，值(非引號)，引號
+                const regex = new RegExp(`${key}\\s*:\\s*["']([^"']+)["']`);
+                const match = text.match(regex);
+                if (match && match[1]) {
+                    newConfig[key] = match[1];
+                    found = true;
+                }
+            });
+
+            if (found && newConfig.apiKey && newConfig.projectId) {
+                localStorage.setItem('firebaseConfig', JSON.stringify(newConfig));
+                alert('設定已儲存！頁面將重新整理以連線。');
+                window.location.reload();
+            } else {
+                alert('解析失敗！請確保您貼上了包含 apiKey 和 projectId 的正確設定內容。\n(請不要包含外層的 const firebaseConfig = { ... })');
+            }
+        };
+
+        const handleResetConfig = () => {
+            if(confirm('確定要清除本機的 Firebase 設定嗎？\n清除後將回到未設定狀態。')) {
+                localStorage.removeItem('firebaseConfig');
+                window.location.reload();
+            }
+        };
+        
+        const copyConfigLink = async () => {
+            try {
+                await navigator.clipboard.writeText(app.inputs.configShareUrl.value);
+                alert('已複製分享連結！');
+            } catch (err) {
+                alert('複製失敗');
+            }
+        };
+
+
+        // --- 其他 Modal 開啟/關閉邏輯 ---
         const openManageStudentModal = () => {
             playSound(app.sounds.click);
             app.inputs.studentName.value = '';
@@ -778,8 +1183,8 @@ service cloud.firestore {
             state.behaviors.forEach(b => {
                 const btn = document.createElement('button');
                 const pointsText = b.points > 0 ? `+${b.points}` : b.points;
-                btn.className = `w-full pop-button pop-shadow-sm border-2 border-black rounded-md p-3 font-bold text-left flex justify-between items-center ${b.type === 'positive' ? 'bg-green-400' : 'bg-red-400'}`;
-                btn.innerHTML = `<span>${b.name}</span> <span class="text-xl">${pointsText}</span>`;
+                btn.className = `w-full modern-btn rounded-xl p-3 font-bold text-left flex justify-between items-center mb-2 shadow-sm border border-white/10 transition-transform hover:scale-[1.02] ${b.type === 'positive' ? 'bg-gradient-to-r from-emerald-500/80 to-teal-600/80 text-white' : 'bg-gradient-to-r from-red-500/80 to-rose-600/80 text-white'}`;
+                btn.innerHTML = `<span>${b.name}</span> <span class="text-xl font-exo bg-black/20 px-2 rounded">${pointsText}</span>`;
                 btn.addEventListener('click', () => awardGroupPoints(b, students));
                 if (b.type === 'positive') app.containers.positiveBehaviors.appendChild(btn);
                 else app.containers.negativeBehaviors.appendChild(btn);
@@ -804,8 +1209,8 @@ service cloud.firestore {
             state.behaviors.forEach(b => {
                 const btn = document.createElement('button');
                 const pointsText = b.points > 0 ? `+${b.points}` : b.points;
-                btn.className = `w-full pop-button pop-shadow-sm border-2 border-black rounded-md p-3 font-bold text-left flex justify-between items-center ${b.type === 'positive' ? 'bg-green-400' : 'bg-red-400'}`;
-                btn.innerHTML = `<span>${b.name}</span> <span class="text-xl">${pointsText}</span>`;
+                btn.className = `w-full modern-btn rounded-xl p-3 font-bold text-left flex justify-between items-center mb-2 shadow-sm border border-white/10 transition-transform hover:scale-[1.02] ${b.type === 'positive' ? 'bg-gradient-to-r from-emerald-500/80 to-teal-600/80 text-white' : 'bg-gradient-to-r from-red-500/80 to-rose-600/80 text-white'}`;
+                btn.innerHTML = `<span>${b.name}</span> <span class="text-xl font-exo bg-black/20 px-2 rounded">${pointsText}</span>`;
                 btn.addEventListener('click', () => awardPoints(b));
                 if (b.type === 'positive') app.containers.positiveBehaviors.appendChild(btn);
                 else app.containers.negativeBehaviors.appendChild(btn);
@@ -816,7 +1221,7 @@ service cloud.firestore {
         const openHistoryModal = async () => {
             const student = state.students.find(s => s.id === state.currentStudentId);
             app.titles.historyModal.textContent = `${student.name} 的歷史紀錄`;
-            app.containers.historyList.innerHTML = '<p>載入中...</p>';
+            app.containers.historyList.innerHTML = '<div class="flex justify-center p-4"><div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div></div>';
             toggleModal(app.modals.history, true);
             
             try {
@@ -833,19 +1238,19 @@ service cloud.firestore {
 
                 app.containers.historyList.innerHTML = '';
                 if (history.length === 0) {
-                    app.containers.historyList.innerHTML = '<p class="text-center p-4">沒有任何紀錄。</p>';
+                    app.containers.historyList.innerHTML = '<p class="text-center p-4 text-gray-400">沒有任何紀錄。</p>';
                     return;
                 }
                 history.forEach(log => {
                     const item = document.createElement('div');
-                    item.className = `p-2 rounded-md mb-2 flex justify-between items-center ${log.points > 0 ? 'bg-green-200' : 'bg-red-200'}`;
+                    item.className = `p-3 rounded-lg mb-2 flex justify-between items-center border border-white/5 ${log.points > 0 ? 'bg-green-500/20' : 'bg-red-500/20'}`;
                     const pointsText = log.points > 0 ? `+${log.points}` : log.points;
-                    item.innerHTML = `<div><p class="font-bold">${log.behaviorName}</p><p class="text-sm text-gray-600">${log.timestamp}</p></div><p class="font-anton text-2xl ${log.points > 0 ? 'text-green-700' : 'text-red-700'}">${pointsText}</p>`;
+                    item.innerHTML = `<div><p class="font-bold text-gray-200">${log.behaviorName}</p><p class="text-xs text-gray-400">${log.timestamp}</p></div><p class="font-exo text-2xl font-bold ${log.points > 0 ? 'text-green-400' : 'text-red-400'}">${pointsText}</p>`;
                     app.containers.historyList.appendChild(item);
                 });
             } catch (error) {
                 console.error("讀取歷史紀錄失敗:", error);
-                app.containers.historyList.innerHTML = '<p class="text-center p-4">讀取紀錄失敗。</p>';
+                app.containers.historyList.innerHTML = '<p class="text-center p-4 text-red-400">讀取紀錄失敗。</p>';
             }
         };
 
@@ -857,15 +1262,15 @@ service cloud.firestore {
 
         const addBehaviorEditorRow = (behavior = { name: '', points: 1, type: 'positive' }, index) => {
             const div = document.createElement('div');
-            div.className = 'flex items-center gap-2 p-2 bg-white/60 rounded-md border-2 border-black';
+            div.className = 'flex items-center gap-2 p-3 bg-black/20 rounded-xl border border-white/10';
             div.innerHTML = `
-                <input type="text" value="${behavior.name}" class="behavior-name-input flex-grow p-2 border-2 border-black rounded-md" placeholder="行為名稱">
-                <input type="number" value="${behavior.points}" class="behavior-points-input w-20 p-2 border-2 border-black rounded-md" placeholder="點數">
-                <select class="behavior-type-select p-2 border-2 border-black rounded-md bg-white">
+                <input type="text" value="${behavior.name}" class="behavior-name-input flex-grow p-2 bg-black/30 border border-white/20 rounded text-white placeholder-gray-500" placeholder="行為名稱">
+                <input type="number" value="${behavior.points}" class="behavior-points-input w-20 p-2 bg-black/30 border border-white/20 rounded text-white text-center">
+                <select class="behavior-type-select p-2 bg-black/30 border border-white/20 rounded text-white">
                     <option value="positive" ${behavior.type === 'positive' ? 'selected' : ''}>加分</option>
                     <option value="negative" ${behavior.type === 'negative' ? 'selected' : ''}>扣分</option>
                 </select>
-                <button class="remove-behavior-btn text-red-600 font-bold text-2xl p-1 hover:bg-red-200 rounded-full">✖</button>
+                <button class="remove-behavior-btn text-red-400 hover:text-red-300 font-bold text-xl p-2 transition-colors">✖</button>
             `;
             app.containers.behaviorListEditor.appendChild(div);
             div.querySelector('.remove-behavior-btn').addEventListener('click', () => div.remove());
@@ -878,7 +1283,7 @@ service cloud.firestore {
                 const ctx = canvas.getContext('2d');
                 const img = new Image();
                 img.onload = () => {
-                    const ratio = Math.min(maxWidth / img.width, 1); // Only scale down
+                    const ratio = Math.min(maxWidth / img.width, 1);
                     const newWidth = img.width * ratio;
                     const newHeight = img.height * ratio;
                     canvas.width = newWidth;
@@ -900,22 +1305,22 @@ service cloud.firestore {
         const renderAvatarGrid = () => {
             app.containers.avatarGrid.innerHTML = '';
             if (state.students.length === 0) {
-                app.containers.avatarGrid.innerHTML = '<p class="text-center text-gray-600 p-8 col-span-full">目前沒有學生資料。</p>';
+                app.containers.avatarGrid.innerHTML = '<p class="text-center text-gray-400 p-8 col-span-full">目前沒有學生資料。</p>';
                 return;
             }
             const sortedStudents = [...state.students].sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
             sortedStudents.forEach(student => {
                 const avatarCard = document.createElement('div');
-                avatarCard.className = 'bg-white border-2 border-black rounded-lg p-3 text-center cursor-pointer hover:bg-gray-50 transition-colors';
+                avatarCard.className = 'bg-white/5 border border-white/10 rounded-xl p-4 text-center cursor-pointer hover:bg-white/10 transition-colors group';
                 avatarCard.innerHTML = `
-                    <div class="relative mb-2">
-                        <img src="${student.avatar || generateAvatar(student.name)}" alt="${student.name}" class="w-16 h-16 mx-auto rounded-md border-2 border-gray-300 object-cover">
-                        <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-30 transition-all rounded-md">
-                            <span class="text-white text-xs opacity-0 hover:opacity-100">點擊上傳</span>
+                    <div class="relative mb-3 inline-block">
+                        <img src="${student.avatar || generateAvatar(student.name)}" alt="${student.name}" class="w-16 h-16 rounded-xl object-cover shadow-lg mx-auto">
+                        <div class="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
+                            <span class="text-white text-xs font-bold">更換</span>
                         </div>
                     </div>
-                    <p class="font-bold text-sm">${student.name}</p>
-                    <p class="text-xs text-gray-500">${student.group || '未分組'}</p>
+                    <p class="font-bold text-sm text-gray-200">${student.name}</p>
+                    <p class="text-xs text-gray-500 mt-1">${student.group || ''}</p>
                 `;
                 avatarCard.addEventListener('click', () => {
                     state.currentUploadingStudentId = student.id;
@@ -923,6 +1328,36 @@ service cloud.firestore {
                 });
                 app.containers.avatarGrid.appendChild(avatarCard);
             });
+        };
+        
+        // --- 班級設定功能 ---
+        const openClassSettingsModal = () => {
+            playSound(app.sounds.click);
+            app.inputs.className.value = state.className;
+            toggleModal(app.modals.classSettings, true);
+        };
+
+        const handleSaveClassSettings = async () => {
+            const newName = app.inputs.className.value.trim();
+            if (!newName) {
+                alert('班級名稱不能為空');
+                return;
+            }
+            
+            playSound(app.sounds.click);
+            try {
+                await db.collection('config').doc('main').set({ className: newName }, { merge: true });
+                toggleModal(app.modals.classSettings, false);
+                
+                const toast = document.createElement('div');
+                toast.className = 'fixed top-6 right-6 bg-green-500 text-white p-3 rounded-xl font-bold z-50 shadow-lg';
+                toast.textContent = '✅ 設定已儲存';
+                document.body.appendChild(toast);
+                setTimeout(() => document.body.removeChild(toast), 2000);
+            } catch (error) {
+                console.error("儲存設定失敗:", error);
+                alert("儲存設定失敗");
+            }
         };
 
         // --- 事件處理 ---
@@ -959,7 +1394,7 @@ service cloud.firestore {
                 }
             } catch (error) {
                 console.error("新增學生失敗:", error);
-                alert("新增學生失敗，請檢查主控台錯誤訊息。");
+                alert("新增學生失敗。");
             }
         };
         
@@ -972,10 +1407,8 @@ service cloud.firestore {
             if (confirm(`確定要刪除學生「${student.name}」嗎？此操作無法復原。`)) {
                 try {
                     await db.collection('students').doc(studentId).delete();
-                    alert(`學生「${student.name}」已刪除。`);
                 } catch (error) {
                     console.error("刪除學生失敗:", error);
-                    alert("刪除學生失敗，請檢查主控台錯誤訊息。");
                 }
             }
         };
@@ -989,7 +1422,8 @@ service cloud.firestore {
             if(studentCard) {
                 const indicator = studentCard.querySelector('.point-change-indicator');
                 indicator.textContent = points > 0 ? `+${points}` : points;
-                indicator.className = 'point-change-indicator absolute text-3xl font-anton font-bold pointer-events-none opacity-0';
+                indicator.style.color = points > 0 ? '#4ade80' : '#f87171';
+                indicator.classList.remove('point-change-up', 'point-change-down');
                 void indicator.offsetWidth;
                 indicator.classList.add(points > 0 ? 'point-change-up' : 'point-change-down');
             }
@@ -1009,7 +1443,6 @@ service cloud.firestore {
                 await batch.commit();
             } catch (error) {
                 console.error("更新點數失敗:", error);
-                alert("更新點數失敗，資料將不會變更。請檢查網路連線或Firebase設定。");
             }
         };
 
@@ -1019,8 +1452,8 @@ service cloud.firestore {
             toggleModal(app.modals.points, false);
 
             const successToast = document.createElement('div');
-            successToast.className = 'fixed top-4 right-4 bg-green-400 border-2 border-black text-white p-3 rounded-lg font-bold z-50';
-            successToast.textContent = `已為 ${state.currentGroupName} 的 ${students.length} 位學生加扣 ${points > 0 ? '+' : ''}${points} 分！`;
+            successToast.className = 'fixed top-6 right-6 bg-gradient-to-r from-emerald-500 to-teal-500 text-white p-4 rounded-xl font-bold shadow-2xl z-50 animate-bounce';
+            successToast.textContent = `⚡ 已為 ${state.currentGroupName} 全體 ${points > 0 ? '+' : ''}${points} 分！`;
             document.body.appendChild(successToast);
             setTimeout(() => document.body.removeChild(successToast), 3000);
 
@@ -1042,32 +1475,95 @@ service cloud.firestore {
                 await batch.commit();
             } catch (error) {
                 console.error("分組更新點數失敗:", error);
-                alert("分組更新點數失敗，請檢查主控台。");
+            }
+        };
+
+        const handleExportLogs = async () => {
+            playSound(app.sounds.click);
+            const loadingToast = document.createElement('div');
+            loadingToast.className = 'fixed top-6 right-6 bg-blue-600 text-white p-4 rounded-xl font-bold z-50 shadow-lg';
+            loadingToast.textContent = '⏳ 正在匯出紀錄...';
+            document.body.appendChild(loadingToast);
+
+            try {
+                const snapshot = await db.collection('logs').orderBy('timestamp', 'desc').get();
+                let csvContent = "\uFEFF時間,學生姓名,行為項目,點數\n"; // BOM for Excel
+
+                snapshot.docs.forEach(doc => {
+                    const d = doc.data();
+                    const date = d.timestamp ? d.timestamp.toDate().toLocaleString('zh-TW') : 'N/A';
+                    const name = (d.studentName || '').replace(/"/g, '""');
+                    const behavior = (d.behaviorName || '').replace(/"/g, '""');
+                    csvContent += `"${date}","${name}","${behavior}",${d.points}\n`;
+                });
+
+                const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `${state.className}_完整紀錄.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                document.body.removeChild(loadingToast);
+                toggleModal(app.modals.export, false);
+            } catch (error) {
+                console.error("匯出失敗:", error);
+                document.body.removeChild(loadingToast);
+                alert('匯出失敗，請檢查網路或 Firebase 設定。');
             }
         };
 
         const handleResetPoints = async () => {
             playSound(app.sounds.negative);
-            if (confirm('確定要將所有學生的點數重設為 0 嗎？此操作無法復原。')) {
-                const batch = db.batch();
+            if (!confirm('⚠️ 嚴重警告：\n\n此操作將會：\n1. 將所有學生點數歸零\n2. 「刪除」所有歷史加扣分紀錄\n\n此操作無法復原！確定要執行嗎？')) return;
+
+            const loadingToast = document.createElement('div');
+            loadingToast.className = 'fixed top-6 right-6 bg-red-600 text-white p-4 rounded-xl font-bold z-50 shadow-lg';
+            loadingToast.textContent = '⏳ 正在重設系統與刪除紀錄...';
+            document.body.appendChild(loadingToast);
+
+            try {
+                // 1. Reset Students Points
+                let batch = db.batch();
                 state.students.forEach(student => {
                     const studentRef = db.collection('students').doc(student.id);
                     batch.update(studentRef, { points: 0 });
                 });
-                const logRef = db.collection('logs').doc();
-                batch.set(logRef, {
+                await batch.commit();
+
+                // 2. Delete Logs (Handling batch limits by chunking)
+                const logsSnapshot = await db.collection('logs').get();
+                const chunks = [];
+                let currentBatch = db.batch();
+                let count = 0;
+
+                logsSnapshot.docs.forEach((doc) => {
+                    currentBatch.delete(doc.ref);
+                    count++;
+                    if (count >= 450) { // Safety margin below 500 limit
+                        chunks.push(currentBatch.commit());
+                        currentBatch = db.batch();
+                        count = 0;
+                    }
+                });
+                if (count > 0) chunks.push(currentBatch.commit());
+                await Promise.all(chunks);
+
+                // 3. Add System Reset Log
+                await db.collection('logs').add({
                     studentId: 'SYSTEM',
-                    behaviorName: '所有點數已重設',
+                    behaviorName: '系統重設 (點數與紀錄已清空)',
                     points: 0,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                try {
-                    await batch.commit();
-                    alert('所有學生的點數已成功重設為 0！');
-                } catch (error) {
-                    console.error("重設點數失敗:", error);
-                    alert("重設點數失敗，請檢查主控台。");
-                }
+
+                document.body.removeChild(loadingToast);
+                alert('系統已完全重設！所有點數已歸零，歷史紀錄已清除。');
+            } catch (error) {
+                console.error("重設失敗:", error);
+                document.body.removeChild(loadingToast);
+                alert("重設過程中發生錯誤，請檢查主控台。");
             }
         };
 
@@ -1087,7 +1583,7 @@ service cloud.firestore {
             });
 
             if (!isValid) {
-                alert('所有行為都必須有名稱和點數。');
+                alert('請完整填寫行為名稱和點數。');
                 return;
             }
 
@@ -1101,10 +1597,8 @@ service cloud.firestore {
                 });
                 await batch.commit();
                 toggleModal(app.modals.manageBehaviors, false);
-                alert('行為項目已更新！');
             } catch (error) {
                 console.error("儲存行為失敗:", error);
-                alert("儲存行為失敗，請檢查主控台。");
             }
         };
 
@@ -1115,33 +1609,35 @@ service cloud.firestore {
             if (!student) return;
             
             const uploadToast = document.createElement('div');
-            uploadToast.className = 'fixed top-4 right-4 bg-blue-400 border-2 border-black text-white p-3 rounded-lg font-bold z-50';
-            uploadToast.textContent = `正在為 ${student.name} 上傳頭像...`;
+            uploadToast.className = 'fixed top-6 right-6 bg-blue-600 text-white p-3 rounded-xl font-bold z-50 shadow-lg';
+            uploadToast.textContent = `⏳ 上傳頭像中...`;
             document.body.appendChild(uploadToast);
             
             try {
                 const compressedImage = await compressImage(file, 200);
                 await db.collection('students').doc(state.currentUploadingStudentId).update({ avatar: compressedImage });
                 document.body.removeChild(uploadToast);
-                const successToast = document.createElement('div');
-                successToast.className = 'fixed top-4 right-4 bg-green-400 border-2 border-black text-white p-3 rounded-lg font-bold z-50';
-                successToast.textContent = `${student.name} 的頭像已更新！`;
-                document.body.appendChild(successToast);
-                setTimeout(() => document.body.removeChild(successToast), 3000);
             } catch (error) {
                 console.error('頭像上傳失敗:', error);
                 document.body.removeChild(uploadToast);
-                const errorToast = document.createElement('div');
-                errorToast.className = 'fixed top-4 right-4 bg-red-400 border-2 border-black text-white p-3 rounded-lg font-bold z-50';
-                errorToast.textContent = `${student.name} 頭像上傳失敗`;
-                document.body.appendChild(errorToast);
-                setTimeout(() => document.body.removeChild(errorToast), 3000);
+                alert('上傳失敗');
             }
             event.target.value = '';
             state.currentUploadingStudentId = null;
         };
 
-        const generateParentLink = () => window.location.href.split('?')[0];
+        const generateParentLink = () => {
+            // 生成家長連結 (移除 mode=teacher)
+            const url = new URL(window.location.href);
+            url.searchParams.delete('mode');
+            
+            // 如果有 config，加上 config (為了讓家長也能連線)
+            if (activeConfig) {
+                 const base64Config = btoa(JSON.stringify(activeConfig));
+                 url.searchParams.set('config', base64Config);
+            }
+            return url.toString();
+        };
 
         const openParentLinkModal = () => {
             playSound(app.sounds.click);
@@ -1153,16 +1649,11 @@ service cloud.firestore {
                 const qr = qrcode(0, 'M');
                 qr.addData(parentUrl);
                 qr.make();
-                canvas.width = 200;
-                canvas.height = 200;
+                canvas.width = 150;
+                canvas.height = 150;
                 qr.renderTo2dContext(canvas.getContext('2d'), 5);
             } catch (error) {
                 console.error('QR碼生成失敗:', error);
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, 200, 200);
-                ctx.fillStyle = '#374151';
-                ctx.textAlign = 'center';
-                ctx.fillText('QR碼生成失敗', 100, 100);
             }
             toggleModal(app.modals.parentLink, true);
         };
@@ -1173,15 +1664,15 @@ service cloud.firestore {
                 await navigator.clipboard.writeText(urlInput.value);
                 const btn = app.buttons.copyParentUrl;
                 const originalText = btn.textContent;
-                btn.textContent = '✅ 已複製！';
-                btn.style.backgroundColor = '#10b981';
+                btn.textContent = '✅ 已複製連結';
+                btn.style.backgroundImage = 'linear-gradient(to right, #10b981, #059669)';
                 setTimeout(() => {
                     btn.textContent = originalText;
-                    btn.style.backgroundColor = '';
+                    btn.style.backgroundImage = '';
                 }, 2000);
                 playSound(app.sounds.positive);
             } catch (err) {
-                alert('複製失敗，請手動複製。');
+                alert('複製失敗');
             }
         };
 
@@ -1198,8 +1689,17 @@ service cloud.firestore {
                 navigator.clipboard.writeText(code).then(() => {
                     app.buttons.copyRulesCode.textContent = '已複製！';
                     setTimeout(() => { app.buttons.copyRulesCode.textContent = '複製'; }, 2000);
-                }).catch(err => alert('複製失敗: ' + err));
+                });
             });
+
+            // Config Listeners
+            app.buttons.config.addEventListener('click', openConfigModal);
+            app.buttons.closeConfig.addEventListener('click', () => toggleModal(app.modals.config, false));
+            app.buttons.saveConfig.addEventListener('click', handleSaveConfig);
+            app.buttons.resetConfig.addEventListener('click', handleResetConfig);
+            app.buttons.copyConfigLink.addEventListener('click', copyConfigLink);
+            app.buttons.initConfig.addEventListener('click', openConfigModal);
+            app.buttons.initHelp.addEventListener('click', () => toggleModal(app.modals.help, true));
 
             app.buttons.closeManageStudent.addEventListener('click', () => toggleModal(app.modals.manageStudent, false));
             app.buttons.closeAvatars.addEventListener('click', () => toggleModal(app.modals.manageAvatars, false));
@@ -1209,6 +1709,10 @@ service cloud.firestore {
             app.buttons.cancelBehaviors.addEventListener('click', () => toggleModal(app.modals.manageBehaviors, false));
             app.buttons.addNewBehavior.addEventListener('click', () => addBehaviorEditorRow());
             app.buttons.closeParentLink.addEventListener('click', () => toggleModal(app.modals.parentLink, false));
+            app.buttons.closeClassSettings.addEventListener('click', () => toggleModal(app.modals.classSettings, false));
+            
+            // 主題切換監聽
+            app.buttons.themeToggle.addEventListener('click', toggleTheme);
 
             if (isTeacherMode) {
                 app.buttons.teacherPanel.addEventListener('click', () => {
@@ -1222,6 +1726,7 @@ service cloud.firestore {
                 app.buttons.parentLink.style.display = 'none';
                 app.buttons.teacherPanel.style.display = 'none';
                 app.buttons.sort.style.display = 'none';
+                app.buttons.config.style.display = 'none';
             }
         };
 
@@ -1235,10 +1740,13 @@ service cloud.firestore {
                 app.buttons.manageBehaviors.addEventListener('click', openManageBehaviorsModal);
                 app.buttons.saveBehaviors.addEventListener('click', handleSaveBehaviors);
                 app.inputs.avatarFile.addEventListener('change', handleAvatarUpload);
+                app.buttons.classSettings.addEventListener('click', openClassSettingsModal);
+                app.buttons.saveClassSettings.addEventListener('click', handleSaveClassSettings);
+                
                 app.buttons.exportOriginal.addEventListener('click', () => {
                     playSound(app.sounds.click);
                     const originalOrderStudents = [...state.students].sort((a, b) => {
-                        const groupA = a.group || '￿'; const groupB = b.group || '￿';
+                        const groupA = a.group || ''; const groupB = b.group || '';
                         if (groupA === groupB) return a.name.localeCompare(b.name, 'zh-Hant');
                         return groupA.localeCompare(groupB, 'zh-Hant');
                     });
@@ -1251,6 +1759,7 @@ service cloud.firestore {
                     exportToCsv(sortedStudents, `${state.className}_成績(分數排序).csv`);
                     toggleModal(app.modals.export, false);
                 });
+                app.buttons.exportLogs.addEventListener('click', handleExportLogs);
                 app.buttons.viewHistory.addEventListener('click', () => { playSound(app.sounds.click); toggleModal(app.modals.points, false); openHistoryModal(); });
                 app.containers.studentsTab.addEventListener('click', () => { playSound(app.sounds.click); switchTab('students'); });
                 app.containers.groupsTab.addEventListener('click', () => { playSound(app.sounds.click); switchTab('groups'); });
@@ -1259,10 +1768,6 @@ service cloud.firestore {
                     const orders = ['byName', 'byPoints', 'byGroup'];
                     const currentOrderIndex = orders.indexOf(state.sortOrder);
                     state.sortOrder = orders[(currentOrderIndex + 1) % orders.length];
-                    const icons = { byName: '★', byPoints: '↑', byGroup: '📊' };
-                    const titles = { byName: '按姓名排序', byPoints: '按分數排序', byGroup: '按分組排序' };
-                    app.buttons.sort.textContent = icons[state.sortOrder];
-                    app.buttons.sort.title = `目前：${titles[state.sortOrder]}，點擊切換`;
                     renderStudentGrid();
                 });
             }
@@ -1311,8 +1816,8 @@ service cloud.firestore {
             } catch (error) {
                 console.error("初始化或載入資料失敗:", error);
                 setLoading(false);
-                app.containers.loadingText.textContent = "載入資料失敗！";
-                app.containers.setupPrompt.innerHTML = `<p class="mt-4 text-lg">請檢查您的 Firebase 設定及網路連線。</p><p class="text-sm mt-2">錯誤訊息: ${error.message}</p>`;
+                app.containers.loadingText.textContent = "Data Link Failed";
+                app.containers.setupPrompt.innerHTML = `<p class="mt-4 text-red-300">請檢查 Firebase 設定與網路。</p><p class="text-xs mt-2 text-gray-500">${error.message}</p>`;
                 app.containers.setupPrompt.classList.remove('hidden');
                 app.containers.spinner.classList.add('hidden');
             }
@@ -1342,20 +1847,19 @@ service cloud.firestore {
 
         let db;
         try {
-            if (firebaseConfig.apiKey === "YOUR_API_KEY" || !firebaseConfig.projectId) {
-                throw new Error("Firebase config is not set.");
+            if (activeConfig) {
+                firebase.initializeApp(activeConfig);
+                db = firebase.firestore();
+                init(); 
+            } else {
+                // 無設定時的狀態
+                throw new Error("No configuration found");
             }
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            init(); // <--- 如果成功，則啟動完整應用
         } catch (e) {
-            console.error("Firebase 初始化失敗:", e.message);
+            console.log("等待設定中...");
             app.containers.initialPrompt.classList.remove('hidden');
-            app.containers.loadingText.textContent = "尚未設定 Firebase！";
-            app.containers.setupPrompt.innerHTML = `
-                <p class="mt-4 text-lg">看起來是第一次使用或設定不正確！</p>
-                <p class="mt-2">請點擊右上角「❓」按鈕，依照說明設定您的 Firebase 專案，然後將 <code>firebaseConfig</code> 貼到 HTML 檔案中。</p>
-            `;
+            app.containers.loadingText.textContent = "Setup Required";
+            app.containers.setupPrompt.classList.remove('hidden');
             app.containers.spinner.classList.add('hidden');
         }
     });
