@@ -69,6 +69,25 @@
                 radial-gradient(at 0% 100%, rgba(221, 214, 254, 0.5) 0px, transparent 50%);
         }
 
+        [data-theme="pokemon"] {
+            --bg-color: #fff7d6;
+            --text-main: #1e3a5f;
+            --text-muted: #5b6477;
+            --glass-bg: rgba(255, 255, 255, 0.82);
+            --glass-border: rgba(37, 99, 235, 0.22);
+            --glass-panel-dark-bg: rgba(255, 250, 235, 0.92);
+            --glass-shadow: 0 16px 40px 0 rgba(37, 99, 235, 0.18);
+            --card-hover-shadow: 0 22px 42px -6px rgba(239, 68, 68, 0.2), 0 0 28px rgba(250, 204, 21, 0.3);
+            --bg-image:
+                radial-gradient(circle at 12% 18%, rgba(250, 204, 21, 0.32) 0, transparent 20%),
+                radial-gradient(circle at 88% 16%, rgba(59, 130, 246, 0.26) 0, transparent 24%),
+                radial-gradient(circle at 50% 82%, rgba(239, 68, 68, 0.22) 0, transparent 28%),
+                linear-gradient(135deg, #fff7d6 0%, #fffdf6 38%, #dbeafe 100%);
+            --primary-gradient: linear-gradient(135deg, #ef4444 0%, #f59e0b 100%);
+            --secondary-gradient: linear-gradient(135deg, #2563eb 0%, #38bdf8 100%);
+            --accent-gradient: linear-gradient(135deg, #facc15 0%, #ef4444 100%);
+        }
+
         body {
             font-family: 'Noto Sans TC', sans-serif;
             background-color: var(--bg-color);
@@ -78,6 +97,24 @@
             color: var(--text-main);
             min-height: 100vh;
             transition: color 0.3s ease, background 0.3s ease;
+        }
+
+        [data-theme="pokemon"] body,
+        [data-theme="pokemon"] {
+            color-scheme: light;
+        }
+
+        [data-theme="pokemon"] body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(circle at 20% 24%, rgba(255,255,255,0.55) 0 2.5rem, transparent 2.6rem),
+                radial-gradient(circle at 80% 72%, rgba(255,255,255,0.42) 0 2rem, transparent 2.1rem),
+                linear-gradient(to bottom, transparent 49.2%, rgba(30,58,95,0.18) 49.2%, rgba(30,58,95,0.18) 50.8%, transparent 50.8%);
+            opacity: 0.55;
+            z-index: -1;
         }
 
         .font-exo {
@@ -100,6 +137,12 @@
             border: 1px solid var(--glass-border);
             box-shadow: var(--glass-shadow);
             color: var(--text-main);
+        }
+
+        [data-theme="pokemon"] .glass-panel,
+        [data-theme="pokemon"] .glass-panel-dark {
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
         }
 
         /* Buttons */
@@ -145,11 +188,325 @@
             box-shadow: var(--card-hover-shadow);
             border-color: rgba(139, 92, 246, 0.5);
         }
+        [data-theme="pokemon"] .student-card:hover {
+            border-color: rgba(239, 68, 68, 0.35);
+        }
         .student-card img {
             transition: transform 0.5s ease;
         }
         .student-card:hover img {
             transform: scale(1.1);
+        }
+
+        .avatar-shell {
+            position: relative;
+            display: inline-flex;
+        }
+
+        .pokemon-badge {
+            position: absolute;
+            right: -10px;
+            bottom: -8px;
+            width: 48px;
+            height: 48px;
+            border-radius: 9999px;
+            padding: 4px;
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.95), rgba(255,255,255,0.7));
+            border: 2px solid rgba(255, 255, 255, 0.65);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.28);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            z-index: 15;
+        }
+
+        .pokemon-badge:hover {
+            transform: scale(1.08);
+            box-shadow: 0 12px 30px rgba(59, 130, 246, 0.35);
+        }
+
+        .pokemon-badge img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            image-rendering: auto;
+        }
+
+        .pokemon-badge.evolution-ready {
+            animation: pokemon-ready-pulse 1.8s infinite;
+        }
+
+        .pokemon-badge.evolving {
+            animation: pokemon-evolve-burst 0.9s ease forwards;
+        }
+
+        .pokemon-counter {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            min-width: 22px;
+            height: 22px;
+            padding: 0 6px;
+            border-radius: 9999px;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: white;
+            font-family: 'Exo 2', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+        }
+
+        .pokemon-name-chip {
+            margin-top: 0.75rem;
+            padding: 0.3rem 0.75rem;
+            border-radius: 9999px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .pokemon-manager-card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .evolution-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 90;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at center, rgba(255,255,255,0.12) 0%, rgba(99,102,241,0.14) 18%, rgba(15,23,42,0.92) 64%, rgba(2,6,23,0.98) 100%),
+                linear-gradient(135deg, rgba(34,197,94,0.12), rgba(59,130,246,0.18), rgba(244,114,182,0.16));
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+
+        .evolution-overlay.hidden {
+            display: none;
+        }
+
+        .evolution-overlay::before,
+        .evolution-overlay::after {
+            content: '';
+            position: absolute;
+            inset: -20%;
+            background:
+                radial-gradient(circle, rgba(255,255,255,0.24) 0%, transparent 48%),
+                repeating-conic-gradient(from 0deg, rgba(255,255,255,0.02) 0deg 12deg, transparent 12deg 24deg);
+            animation: evolution-bg-spin 10s linear infinite;
+            opacity: 0.6;
+        }
+
+        .evolution-overlay::after {
+            animation-direction: reverse;
+            animation-duration: 7s;
+            opacity: 0.35;
+        }
+
+        .evolution-stage {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .evolution-ring {
+            position: absolute;
+            width: min(72vw, 36rem);
+            aspect-ratio: 1;
+            border-radius: 9999px;
+            border: 3px solid rgba(255,255,255,0.16);
+            box-shadow:
+                0 0 0 18px rgba(255,255,255,0.04),
+                0 0 80px rgba(96,165,250,0.18),
+                inset 0 0 40px rgba(255,255,255,0.12);
+            animation: evolution-ring-pulse 2.4s ease-in-out infinite;
+        }
+
+        .evolution-core {
+            position: absolute;
+            width: 16rem;
+            height: 16rem;
+            border-radius: 9999px;
+            background:
+                radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(250,204,21,0.48) 24%, rgba(59,130,246,0.3) 55%, transparent 72%);
+            filter: blur(10px);
+            animation: evolution-core-flash 2s ease-in-out infinite;
+        }
+
+        .evolution-pokemon-image {
+            position: relative;
+            width: min(48vw, 18rem);
+            height: min(48vw, 18rem);
+            object-fit: contain;
+            z-index: 2;
+            filter: drop-shadow(0 0 24px rgba(255,255,255,0.3));
+        }
+
+        .evolution-pokemon-image.from-form {
+            animation: evolution-from-float 1.3s ease-in-out forwards;
+        }
+
+        .evolution-pokemon-image.to-form {
+            opacity: 0;
+            transform: scale(0.65);
+        }
+
+        .evolution-overlay.reveal-next .evolution-pokemon-image.from-form {
+            animation: evolution-from-disappear 0.7s ease forwards;
+        }
+
+        .evolution-overlay.reveal-next .evolution-pokemon-image.to-form {
+            animation: evolution-to-appear 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        .evolution-student-name {
+            position: relative;
+            z-index: 2;
+            font-size: clamp(1.1rem, 2vw, 1.5rem);
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: rgba(226,232,240,0.86);
+        }
+
+        .evolution-caption {
+            position: relative;
+            z-index: 2;
+            font-family: 'Exo 2', sans-serif;
+            font-size: clamp(2rem, 5vw, 4rem);
+            font-weight: 900;
+            color: white;
+            text-shadow: 0 0 30px rgba(255,255,255,0.35);
+        }
+
+        .evolution-subcaption {
+            position: relative;
+            z-index: 2;
+            font-size: clamp(1rem, 2vw, 1.2rem);
+            color: rgba(255,255,255,0.72);
+            letter-spacing: 0.08em;
+        }
+
+        .evolution-particles,
+        .evolution-rays {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .evolution-particle,
+        .evolution-ray {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform-origin: center;
+        }
+
+        .evolution-particle {
+            width: 0.8rem;
+            height: 0.8rem;
+            border-radius: 9999px;
+            background: radial-gradient(circle, rgba(255,255,255,0.95), rgba(96,165,250,0.3));
+            animation: evolution-particle-burst 2.1s linear infinite;
+        }
+
+        .evolution-ray {
+            width: 0.4rem;
+            height: 10rem;
+            border-radius: 9999px;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.92), rgba(250,204,21,0.18), rgba(255,255,255,0));
+            filter: blur(1px);
+            opacity: 0.75;
+            animation: evolution-ray-spin 2.5s linear infinite;
+        }
+
+        .evolution-flash {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.2) 30%, transparent 60%);
+            opacity: 0;
+        }
+
+        .evolution-overlay.reveal-next .evolution-flash {
+            animation: evolution-screen-flash 0.9s ease forwards;
+        }
+
+        @keyframes evolution-bg-spin {
+            from { transform: rotate(0deg) scale(1); }
+            to { transform: rotate(360deg) scale(1.06); }
+        }
+
+        @keyframes evolution-ring-pulse {
+            0%, 100% { transform: scale(0.94); opacity: 0.65; }
+            50% { transform: scale(1.06); opacity: 1; }
+        }
+
+        @keyframes evolution-core-flash {
+            0%, 100% { transform: scale(0.85); opacity: 0.65; }
+            50% { transform: scale(1.18); opacity: 1; }
+        }
+
+        @keyframes evolution-from-float {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-16px) scale(1.08); }
+        }
+
+        @keyframes evolution-from-disappear {
+            0% { opacity: 1; transform: scale(1); filter: brightness(1.2); }
+            100% { opacity: 0; transform: scale(1.45); filter: brightness(2.2) blur(8px); }
+        }
+
+        @keyframes evolution-to-appear {
+            0% { opacity: 0; transform: scale(0.65); filter: brightness(2.4) blur(10px); }
+            55% { opacity: 1; transform: scale(1.15); filter: brightness(1.5) blur(1px); }
+            100% { opacity: 1; transform: scale(1); filter: brightness(1); }
+        }
+
+        @keyframes evolution-screen-flash {
+            0% { opacity: 0; }
+            35% { opacity: 0.95; }
+            100% { opacity: 0; }
+        }
+
+        @keyframes evolution-particle-burst {
+            0% { transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0) scale(0.4); opacity: 0; }
+            15% { opacity: 1; }
+            100% { transform: translate(-50%, -50%) rotate(var(--angle)) translateY(calc(-1 * var(--distance))) scale(1.25); opacity: 0; }
+        }
+
+        @keyframes evolution-ray-spin {
+            0% { transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-2rem) scaleY(0.7); opacity: 0; }
+            25% { opacity: 0.85; }
+            100% { transform: translate(-50%, -50%) rotate(calc(var(--angle) + 20deg)) translateY(-13rem) scaleY(1.15); opacity: 0; }
+        }
+
+        @keyframes pokemon-ready-pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.28); }
+            50% { transform: scale(1.12); box-shadow: 0 0 0 8px rgba(250, 204, 21, 0.12), 0 12px 30px rgba(250, 204, 21, 0.35); }
+        }
+
+        @keyframes pokemon-evolve-burst {
+            0% { transform: scale(1) rotate(0deg); filter: brightness(1); }
+            40% { transform: scale(1.35) rotate(10deg); filter: brightness(1.35) drop-shadow(0 0 12px rgba(255,255,255,0.9)); }
+            100% { transform: scale(1) rotate(0deg); filter: brightness(1); }
         }
 
         /* Animations */
@@ -163,6 +520,15 @@
         [data-theme="light"] .title-glow {
             animation: none; /* 亮色模式下取消發光，改為深色陰影 */
             text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+        }
+        [data-theme="pokemon"] .title-glow {
+            animation: pokemon-title-glow 2.8s infinite;
+            text-shadow: 0 0 20px rgba(250, 204, 21, 0.25), 0 0 42px rgba(59, 130, 246, 0.16);
+        }
+
+        @keyframes pokemon-title-glow {
+            0%, 100% { filter: saturate(1); transform: translateY(0); }
+            50% { filter: saturate(1.2); transform: translateY(-2px); }
         }
 
         .point-change-up {
@@ -270,6 +636,67 @@
         [data-theme="light"] .bg-black\/20 { background-color: rgba(255,255,255,0.5); }
         [data-theme="light"] .bg-black\/30 { background-color: rgba(255,255,255,0.8); }
         [data-theme="light"] .bg-white { background-color: #ffffff; }
+
+        /* Utility overrides for Pokemon theme */
+        [data-theme="pokemon"] .text-white { color: #1e3a5f; }
+        [data-theme="pokemon"] .text-gray-400 { color: #6b7280; }
+        [data-theme="pokemon"] .text-gray-200 { color: #1f2937; }
+        [data-theme="pokemon"] .text-blue-300 { color: #2563eb; }
+        [data-theme="pokemon"] .text-purple-300 { color: #7c3aed; }
+        [data-theme="pokemon"] .text-yellow-300 { color: #d97706; }
+        [data-theme="pokemon"] .border-white\/20 { border-color: rgba(37, 99, 235, 0.18); }
+        [data-theme="pokemon"] .border-white\/10 { border-color: rgba(37, 99, 235, 0.12); }
+        [data-theme="pokemon"] .bg-white\/5 { background-color: rgba(255,255,255,0.78); }
+        [data-theme="pokemon"] .bg-white\/10 { background-color: rgba(255,255,255,0.86); }
+        [data-theme="pokemon"] .bg-black\/20 { background-color: rgba(255,255,255,0.72); }
+        [data-theme="pokemon"] .bg-black\/30 { background-color: rgba(255,255,255,0.88); }
+        [data-theme="pokemon"] .btn-glass {
+            background: rgba(255,255,255,0.78);
+            border: 1px solid rgba(37, 99, 235, 0.18);
+            color: #1e3a5f;
+        }
+        [data-theme="pokemon"] .btn-glass:hover {
+            background: rgba(255,255,255,0.94);
+        }
+        [data-theme="pokemon"] .pokemon-manager-card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.88), rgba(254,240,138,0.18));
+            border: 1px solid rgba(37, 99, 235, 0.14);
+        }
+        [data-theme="pokemon"] .pokemon-name-chip {
+            background: rgba(255,255,255,0.92);
+            border-color: rgba(37,99,235,0.12);
+            color: #475569;
+        }
+        [data-theme="pokemon"] .modal-backdrop {
+            background-color: rgba(30, 58, 95, 0.26);
+            backdrop-filter: blur(10px);
+        }
+        [data-theme="pokemon"] #class-name-title {
+            background-image: linear-gradient(90deg, #ef4444 0%, #f59e0b 36%, #facc15 52%, #2563eb 78%, #1d4ed8 100%);
+            filter: drop-shadow(0 8px 18px rgba(239,68,68,0.12));
+        }
+        [data-theme="pokemon"] header > div:last-child {
+            background: rgba(255,255,255,0.82);
+            border: 1px solid rgba(37,99,235,0.16);
+            box-shadow: 0 10px 24px rgba(37,99,235,0.12);
+        }
+        [data-theme="pokemon"] #control-panel {
+            background:
+                linear-gradient(135deg, rgba(255,255,255,0.88), rgba(254,240,138,0.28)),
+                linear-gradient(135deg, rgba(239,68,68,0.08), rgba(37,99,235,0.08));
+            border-color: rgba(37,99,235,0.16);
+        }
+        [data-theme="pokemon"] #initial-prompt {
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.92), rgba(219,234,254,0.78));
+            border-color: rgba(37,99,235,0.14);
+        }
+        [data-theme="pokemon"] .tab-button.active-tab {
+            background: linear-gradient(to bottom, rgba(250,204,21,0.24), rgba(255,255,255,0.05));
+        }
+        [data-theme="pokemon"] .group-card {
+            border-color: rgba(37,99,235,0.12);
+        }
         
         /* Icons */
         .icon { width: 1.5rem; height: 1.5rem; }
@@ -294,6 +721,9 @@
                     </svg>
                     <svg id="icon-moon" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                    </svg>
+                    <svg id="icon-pokeball" class="w-6 h-6 hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 3C7.03 3 2.95 6.66 2.19 11.42h5.28A4.75 4.75 0 0 1 11.42 7.47V3.19A9.1 9.1 0 0 0 12 3Zm.58.19v4.28a4.75 4.75 0 0 1 3.95 3.95h5.28A9.86 9.86 0 0 0 12.58 3.2ZM7.47 12.58H2.19A9.84 9.84 0 0 0 21.8 12.58h-5.27a4.75 4.75 0 0 1-3.95 3.95v4.28a9.1 9.1 0 0 0 9.23-8.23h-5.28a4.75 4.75 0 0 1-9.06 0Zm4.53-1.91a1.33 1.33 0 1 0 0 2.66 1.33 1.33 0 0 0 0-2.66Z"/>
                     </svg>
                 </button>
                 <div class="w-px h-6 bg-white/20 mx-1"></div>
@@ -335,6 +765,7 @@
         <div id="control-panel" class="glass-panel p-6 rounded-2xl mb-10 flex flex-wrap gap-4 justify-center hidden animate-fade-in-down">
             <button id="manage-student-btn" class="modern-btn btn-secondary rounded-xl px-6 py-3 font-bold text-lg shadow-lg">管理學生</button>
             <button id="manage-avatars-btn" class="modern-btn btn-secondary rounded-xl px-6 py-3 font-bold text-lg shadow-lg" style="background-image: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);">上傳頭像</button>
+            <button id="manage-pokemon-btn" class="modern-btn btn-secondary rounded-xl px-6 py-3 font-bold text-lg shadow-lg" style="background-image: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);">設定寶可夢</button>
             <button id="manage-behaviors-btn" class="modern-btn btn-secondary rounded-xl px-6 py-3 font-bold text-lg shadow-lg" style="background-image: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);">管理行為</button>
             <button id="class-settings-btn" class="modern-btn btn-secondary rounded-xl px-6 py-3 font-bold text-lg shadow-lg" style="background-image: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);">班級設定</button>
             <button id="export-grades-btn" class="modern-btn btn-primary rounded-xl px-6 py-3 font-bold text-lg shadow-lg">匯出成績</button>
@@ -538,6 +969,11 @@ service cloud.firestore {
                 <label class="block text-blue-300 text-sm font-bold mb-2">班級名稱 (顯示於標題)</label>
                 <input type="text" id="class-name-input" class="w-full p-3 bg-black/30 border border-white/20 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors text-center font-bold text-lg">
             </div>
+            <div class="mb-8">
+                <label class="block text-yellow-300 text-sm font-bold mb-2">寶可夢進化門檻</label>
+                <input type="number" id="evolution-threshold-input" min="1" step="1" class="w-full p-3 bg-black/30 border border-white/20 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-yellow-400 transition-colors text-center font-bold text-lg" placeholder="30">
+                <p class="text-xs text-gray-400 mt-2">每累積獲得這麼多加分，該學生的寶可夢會多 1 次可進化次數。</p>
+            </div>
             <div class="flex justify-end space-x-3">
                 <button id="close-class-settings-btn" class="btn-glass rounded-lg px-6 py-2 font-bold">取消</button>
                 <button id="save-class-settings-btn" class="modern-btn btn-primary rounded-lg px-6 py-2 font-bold">儲存設定</button>
@@ -650,9 +1086,49 @@ service cloud.firestore {
             </div>
         </div>
     </div>
+
+    <div id="manage-pokemon-modal" class="fixed inset-0 modal-backdrop flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-panel-dark w-full max-w-5xl p-6 rounded-2xl flex flex-col shadow-2xl" style="height: 84vh;">
+            <h2 class="font-exo text-2xl mb-2 text-white">學生寶可夢管理</h2>
+            <p class="text-sm mb-6 text-gray-400">每位學生先隨機分配一隻；在這裡可手動改成其他寶可夢。選單資料與圖示來自 PokeAPI。</p>
+            <div id="pokemon-manager-status" class="text-sm text-blue-300 mb-4 hidden">正在載入寶可夢圖鑑...</div>
+            <div class="flex-grow overflow-y-auto custom-scrollbar">
+                <div id="pokemon-manager-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <!-- 寶可夢管理卡片 -->
+                </div>
+            </div>
+            <div class="mt-6 text-right">
+                <button id="close-pokemon-manager-btn" class="btn-glass rounded-lg px-8 py-2 font-bold">完成</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="evolution-overlay" class="evolution-overlay hidden">
+        <div class="evolution-flash"></div>
+        <div class="evolution-particles" id="evolution-particles"></div>
+        <div class="evolution-rays" id="evolution-rays"></div>
+        <div class="evolution-stage">
+            <div class="evolution-ring"></div>
+            <div class="evolution-core"></div>
+            <div id="evolution-student-name" class="evolution-student-name"></div>
+            <div id="evolution-caption" class="evolution-caption">進化中...</div>
+            <img id="evolution-from-image" class="evolution-pokemon-image from-form" alt="before evolution">
+            <img id="evolution-to-image" class="evolution-pokemon-image to-form" alt="after evolution">
+            <div id="evolution-subcaption" class="evolution-subcaption">神奇的光芒正在包圍牠</div>
+        </div>
+    </div>
     
     <script>
     document.addEventListener('DOMContentLoaded', () => {
+        const POKEAPI_BASE = 'https://pokeapi.co/api/v2';
+        const POKEMON_SELECTION_LIMIT = 151;
+        const DEFAULT_EVOLUTION_THRESHOLD = 30;
+        const RANDOM_POKEMON_IDS = [
+            1, 4, 7, 10, 13, 16, 19, 21, 23, 27, 29, 32, 35, 37, 41, 43, 46, 48, 52, 54,
+            56, 58, 60, 63, 66, 69, 72, 74, 77, 79, 81, 84, 86, 88, 90, 92, 96, 98, 100,
+            102, 104, 109, 111, 116, 118, 120, 129, 133, 138, 140, 147
+        ];
+
         // --- 核心邏輯：設定管理 (Config Management) ---
 
         // 1. Hardcoded Default (優先級 2)
@@ -715,6 +1191,7 @@ service cloud.firestore {
                 help: getEl('help-modal'),
                 manageStudent: getEl('manage-student-modal'),
                 manageAvatars: getEl('manage-avatars-modal'),
+                managePokemon: getEl('manage-pokemon-modal'),
                 export: getEl('export-modal'),
                 points: getEl('points-modal'),
                 history: getEl('history-modal'),
@@ -722,6 +1199,7 @@ service cloud.firestore {
                 parentLink: getEl('parent-link-modal'),
                 classSettings: getEl('class-settings-modal'),
                 config: getEl('config-modal'), // 新增
+                evolutionOverlay: getEl('evolution-overlay'),
             },
             buttons: {
                 themeToggle: getEl('theme-toggle-btn'),
@@ -734,6 +1212,8 @@ service cloud.firestore {
                 closeManageStudent: getEl('close-manage-student-btn'),
                 confirmAddStudent: getEl('confirm-add-student-btn'),
                 manageAvatars: getEl('manage-avatars-btn'),
+                managePokemon: getEl('manage-pokemon-btn'),
+                closePokemonManager: getEl('close-pokemon-manager-btn'),
                 closeAvatars: getEl('close-avatars-btn'),
                 exportGrades: getEl('export-grades-btn'),
                 exportOriginal: getEl('export-original-btn'),
@@ -767,6 +1247,7 @@ service cloud.firestore {
                 studentName: getEl('student-name-input'),
                 avatarFile: getEl('avatar-file-input'),
                 className: getEl('class-name-input'),
+                evolutionThreshold: getEl('evolution-threshold-input'),
                 configText: getEl('config-textarea'),
                 configShareUrl: getEl('config-share-url'),
             },
@@ -789,6 +1270,10 @@ service cloud.firestore {
                 behaviorListEditor: getEl('behavior-list-editor'),
                 deleteStudentList: getEl('delete-student-list'),
                 avatarGrid: getEl('avatar-grid'),
+                pokemonManagerGrid: getEl('pokemon-manager-grid'),
+                pokemonManagerStatus: getEl('pokemon-manager-status'),
+                evolutionParticles: getEl('evolution-particles'),
+                evolutionRays: getEl('evolution-rays'),
                 shareConfigSection: getEl('share-config-section'),
             },
             sounds: {
@@ -801,9 +1286,17 @@ service cloud.firestore {
                 pointsModal: getEl('points-modal-title'),
                 historyModal: getEl('history-modal-title'),
             },
+            evolution: {
+                studentName: getEl('evolution-student-name'),
+                caption: getEl('evolution-caption'),
+                subcaption: getEl('evolution-subcaption'),
+                fromImage: getEl('evolution-from-image'),
+                toImage: getEl('evolution-to-image'),
+            },
             icons: {
                 sun: getEl('icon-sun'),
                 moon: getEl('icon-moon'),
+                pokeball: getEl('icon-pokeball'),
             }
         };
 
@@ -835,7 +1328,16 @@ service cloud.firestore {
             isTeacherMode: isTeacherMode,
             currentUploadingStudentId: null,
             unsubscribeListeners: [],
-            theme: localStorage.getItem('theme') || 'dark'
+            theme: localStorage.getItem('theme') || 'dark',
+            evolutionThreshold: DEFAULT_EVOLUTION_THRESHOLD,
+            pokemonCatalog: [],
+            pokemonCatalogPromise: null,
+            pokemonCache: new Map(),
+            studentPokemonAssignmentLocks: new Set(),
+            studentPokemonLocalizationLocks: new Set(),
+            finalFormCatalog: [],
+            finalFormCatalogPromise: null,
+            evolutionAnimationActive: false
         };
 
         // --- 主題切換邏輯 ---
@@ -844,10 +1346,20 @@ service cloud.firestore {
                 document.documentElement.setAttribute('data-theme', 'light');
                 app.icons.sun.classList.remove('hidden');
                 app.icons.moon.classList.add('hidden');
+                app.icons.pokeball.classList.add('hidden');
+                app.buttons.themeToggle.title = '切換主題（目前：亮色）';
+            } else if (theme === 'pokemon') {
+                document.documentElement.setAttribute('data-theme', 'pokemon');
+                app.icons.sun.classList.add('hidden');
+                app.icons.moon.classList.add('hidden');
+                app.icons.pokeball.classList.remove('hidden');
+                app.buttons.themeToggle.title = '切換主題（目前：寶可夢）';
             } else {
                 document.documentElement.removeAttribute('data-theme');
                 app.icons.sun.classList.add('hidden');
                 app.icons.moon.classList.remove('hidden');
+                app.icons.pokeball.classList.add('hidden');
+                app.buttons.themeToggle.title = '切換主題（目前：深色）';
             }
             state.theme = theme;
             localStorage.setItem('theme', theme);
@@ -855,7 +1367,9 @@ service cloud.firestore {
 
         const toggleTheme = () => {
             playSound(app.sounds.click);
-            const newTheme = state.theme === 'dark' ? 'light' : 'dark';
+            const themes = ['dark', 'light', 'pokemon'];
+            const currentIndex = themes.indexOf(state.theme);
+            const newTheme = themes[(currentIndex + 1) % themes.length];
             applyTheme(newTheme);
         };
 
@@ -894,6 +1408,343 @@ service cloud.firestore {
             link.click();
             document.body.removeChild(link);
         }
+
+        const showToast = (message, type = 'info', duration = 2200) => {
+            const toast = document.createElement('div');
+            const colorMap = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                warning: 'bg-yellow-500 text-slate-900',
+                info: 'bg-blue-600'
+            };
+            toast.className = `fixed top-6 right-6 ${colorMap[type] || colorMap.info} text-white p-3 rounded-xl font-bold z-50 shadow-lg`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                if (toast.parentNode) toast.parentNode.removeChild(toast);
+            }, duration);
+        };
+
+        const extractIdFromUrl = (url = '') => {
+            const match = url.match(/\/(\d+)\/?$/);
+            return match ? Number(match[1]) : null;
+        };
+
+        const formatPokemonName = (name = '') => name
+            .split('-')
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(' ');
+
+        const getLocalizedPokemonName = (speciesData, fallbackName = '') => {
+            const names = Array.isArray(speciesData?.names) ? speciesData.names : [];
+            const preferredOrder = ['zh-hant', 'zh-hans', 'ja-Hrkt', 'en'];
+            for (const language of preferredOrder) {
+                const match = names.find(item => item.language?.name === language && item.name);
+                if (match) return match.name;
+            }
+            return formatPokemonName(fallbackName || speciesData?.name || '');
+        };
+
+        const getPokemonSprite = (pokemonData) =>
+            pokemonData?.sprites?.other?.['official-artwork']?.front_default ||
+            pokemonData?.sprites?.front_default ||
+            '';
+
+        const fetchJsonCached = async (url) => {
+            if (state.pokemonCache.has(url)) return state.pokemonCache.get(url);
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`PokeAPI 載入失敗 (${response.status})`);
+            }
+            const data = await response.json();
+            state.pokemonCache.set(url, data);
+            return data;
+        };
+
+        const findEvolutionPath = (node, targetName, path = []) => {
+            const nextPath = [...path, node.species.name];
+            if (node.species.name === targetName) {
+                return { path: nextPath, node };
+            }
+            for (const child of node.evolves_to || []) {
+                const result = findEvolutionPath(child, targetName, nextPath);
+                if (result) return result;
+            }
+            return null;
+        };
+
+        const buildEvolutionPath = (chainRoot, targetName) => {
+            const found = findEvolutionPath(chainRoot, targetName);
+            if (!found) return [targetName];
+            const fullPath = [...found.path];
+            let cursor = found.node;
+            while (cursor.evolves_to && cursor.evolves_to.length > 0) {
+                cursor = cursor.evolves_to[0];
+                fullPath.push(cursor.species.name);
+            }
+            return fullPath;
+        };
+
+        const buildEvolutionChainEntry = async (speciesName) => {
+            const [chainPokemonData, chainSpeciesData] = await Promise.all([
+                fetchJsonCached(`${POKEAPI_BASE}/pokemon/${speciesName}/`),
+                fetchJsonCached(`${POKEAPI_BASE}/pokemon-species/${speciesName}/`)
+            ]);
+            return {
+                speciesName,
+                pokemonId: chainPokemonData.id,
+                displayName: getLocalizedPokemonName(chainSpeciesData, speciesName),
+                sprite: getPokemonSprite(chainPokemonData)
+            };
+        };
+
+        const buildPokemonProfile = async (identifier) => {
+            const pokemonData = await fetchJsonCached(`${POKEAPI_BASE}/pokemon/${identifier}/`);
+            const speciesData = await fetchJsonCached(pokemonData.species.url);
+            const evolutionChainData = speciesData.evolution_chain?.url
+                ? await fetchJsonCached(speciesData.evolution_chain.url)
+                : null;
+            const evolutionNames = evolutionChainData
+                ? buildEvolutionPath(evolutionChainData.chain, speciesData.name)
+                : [speciesData.name];
+            const evolutionChain = await Promise.all(evolutionNames.map(buildEvolutionChainEntry));
+            const evolutionStageIndex = Math.max(0, evolutionChain.findIndex(item => item.speciesName === speciesData.name));
+
+            return {
+                sourcePokemonId: pokemonData.id,
+                evolutionStageIndex,
+                pendingEvolutionCount: 0,
+                evolutionPointsEarned: 0,
+                evolutionChain
+            };
+        };
+
+        const getCurrentPokemonStage = (student) => {
+            const chain = student?.pokemon?.evolutionChain || [];
+            const stageIndex = Math.min(student?.pokemon?.evolutionStageIndex || 0, Math.max(chain.length - 1, 0));
+            return chain[stageIndex] || null;
+        };
+
+        const getNextPokemonStage = (student) => {
+            const chain = student?.pokemon?.evolutionChain || [];
+            const nextIndex = (student?.pokemon?.evolutionStageIndex || 0) + 1;
+            return chain[nextIndex] || null;
+        };
+
+        const getFinalPokemonStage = (student) => {
+            const chain = student?.pokemon?.evolutionChain || [];
+            return chain.length > 0 ? chain[chain.length - 1] : null;
+        };
+
+        const canTransformFinalForm = (student) => {
+            if (!student?.pokemon) return false;
+            return !getNextPokemonStage(student) && Number(student.pokemon.pendingEvolutionCount || 0) > 0;
+        };
+
+        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        const populateEvolutionEffects = () => {
+            app.containers.evolutionParticles.innerHTML = '';
+            app.containers.evolutionRays.innerHTML = '';
+            for (let i = 0; i < 18; i++) {
+                const particle = document.createElement('span');
+                particle.className = 'evolution-particle';
+                particle.style.setProperty('--angle', `${i * 20}deg`);
+                particle.style.setProperty('--distance', `${160 + (i % 6) * 18}px`);
+                particle.style.animationDelay = `${(i % 6) * 0.12}s`;
+                app.containers.evolutionParticles.appendChild(particle);
+            }
+            for (let i = 0; i < 12; i++) {
+                const ray = document.createElement('span');
+                ray.className = 'evolution-ray';
+                ray.style.setProperty('--angle', `${i * 30}deg`);
+                ray.style.animationDelay = `${i * 0.08}s`;
+                app.containers.evolutionRays.appendChild(ray);
+            }
+        };
+
+        const playEvolutionOverlay = async (student, currentStage, nextStage, mode = 'evolution') => {
+            if (!currentStage || !nextStage) return;
+            state.evolutionAnimationActive = true;
+            populateEvolutionEffects();
+            app.evolution.studentName.textContent = student.name;
+            const introText = mode === 'transform'
+                ? `${currentStage.displayName} 正在變身`
+                : `${currentStage.displayName} 正在進化`;
+            const midText = mode === 'transform'
+                ? `${currentStage.displayName} 要變身成 ${nextStage.displayName}！`
+                : `${currentStage.displayName} 要進化成 ${nextStage.displayName}！`;
+            const endText = mode === 'transform'
+                ? `${nextStage.displayName} 變身完成！`
+                : `${nextStage.displayName} 誕生！`;
+            app.evolution.caption.textContent = introText;
+            app.evolution.subcaption.textContent = mode === 'transform' ? '神秘力量正在改變形態' : '耀眼能量正在快速聚集';
+            app.evolution.fromImage.src = currentStage.sprite || '';
+            app.evolution.toImage.src = nextStage.sprite || '';
+            app.modals.evolutionOverlay.classList.remove('hidden', 'reveal-next');
+            await delay(1200);
+            app.evolution.caption.textContent = midText;
+            app.evolution.subcaption.textContent = mode === 'transform' ? '最終形態力量正在重組' : '全班見證這一刻';
+            await delay(600);
+            app.modals.evolutionOverlay.classList.add('reveal-next');
+            await delay(1050);
+            app.evolution.caption.textContent = endText;
+            app.evolution.subcaption.textContent = mode === 'transform' ? '變身完成' : '進化完成';
+            await delay(1150);
+            app.modals.evolutionOverlay.classList.add('hidden');
+            app.modals.evolutionOverlay.classList.remove('reveal-next');
+            state.evolutionAnimationActive = false;
+        };
+
+        const normalizeStudentPokemon = (student) => {
+            if (!student.pokemon || !Array.isArray(student.pokemon.evolutionChain) || student.pokemon.evolutionChain.length === 0) {
+                return student;
+            }
+            const stageIndex = Math.min(student.pokemon.evolutionStageIndex || 0, student.pokemon.evolutionChain.length - 1);
+            return {
+                ...student,
+                pokemon: {
+                    ...student.pokemon,
+                    evolutionStageIndex: stageIndex,
+                    pendingEvolutionCount: Math.max(0, Number(student.pokemon.pendingEvolutionCount || 0)),
+                    evolutionPointsEarned: Math.max(0, Number(student.pokemon.evolutionPointsEarned || 0))
+                }
+            };
+        };
+
+        const ensurePokemonCatalog = async () => {
+            if (state.pokemonCatalog.length > 0) return state.pokemonCatalog;
+            if (state.pokemonCatalogPromise) return state.pokemonCatalogPromise;
+            state.pokemonCatalogPromise = (async () => {
+                const listData = await fetchJsonCached(`${POKEAPI_BASE}/pokemon-species?limit=${POKEMON_SELECTION_LIMIT}`);
+                const catalogEntries = await Promise.all(listData.results.map(async (item) => {
+                    const speciesData = await fetchJsonCached(item.url);
+                    const id = extractIdFromUrl(item.url);
+                    return {
+                        name: item.name,
+                        id,
+                        label: `#${id} ${getLocalizedPokemonName(speciesData, item.name)}`
+                    };
+                }));
+                state.pokemonCatalog = catalogEntries.sort((a, b) => a.id - b.id);
+                return state.pokemonCatalog;
+            })();
+            try {
+                return await state.pokemonCatalogPromise;
+            } finally {
+                state.pokemonCatalogPromise = null;
+            }
+        };
+
+        const isSpeciesFinalForm = async (speciesIdentifier) => {
+            const speciesData = await fetchJsonCached(`${POKEAPI_BASE}/pokemon-species/${speciesIdentifier}/`);
+            if (!speciesData.evolution_chain?.url) {
+                return true;
+            }
+            const evolutionChainData = await fetchJsonCached(speciesData.evolution_chain.url);
+            const evolutionPath = buildEvolutionPath(evolutionChainData.chain, speciesData.name);
+            return evolutionPath[evolutionPath.length - 1] === speciesData.name;
+        };
+
+        const getRandomFinalFormProfile = async (excludedSpeciesName) => {
+            const triedIds = new Set();
+            const maxAttempts = Math.min(24, POKEMON_SELECTION_LIMIT);
+
+            while (triedIds.size < maxAttempts) {
+                const candidateId = Math.floor(Math.random() * POKEMON_SELECTION_LIMIT) + 1;
+                if (triedIds.has(candidateId)) continue;
+                triedIds.add(candidateId);
+
+                const speciesData = await fetchJsonCached(`${POKEAPI_BASE}/pokemon-species/${candidateId}/`);
+                if (speciesData.name === excludedSpeciesName) continue;
+                if (!(await isSpeciesFinalForm(candidateId))) continue;
+
+                const profile = await buildPokemonProfile(candidateId);
+                const finalStage = profile.evolutionChain[profile.evolutionChain.length - 1];
+                if (!finalStage || finalStage.speciesName === excludedSpeciesName) continue;
+
+                return {
+                    ...profile,
+                    pendingEvolutionCount: 0,
+                    evolutionPointsEarned: 0
+                };
+            }
+
+            throw new Error('找不到可用的最終形態寶可夢');
+        };
+
+        const shouldLocalizeStudentPokemon = (student) => {
+            const chain = student?.pokemon?.evolutionChain;
+            if (!Array.isArray(chain) || chain.length === 0) return false;
+            return chain.some(entry => !entry.displayName || entry.displayName === formatPokemonName(entry.speciesName));
+        };
+
+        const localizeStudentPokemon = async (student) => {
+            if (!student?.id || !student.pokemon || state.studentPokemonLocalizationLocks.has(student.id)) return;
+            state.studentPokemonLocalizationLocks.add(student.id);
+            try {
+                const localizedEvolutionChain = await Promise.all(
+                    student.pokemon.evolutionChain.map(entry => buildEvolutionChainEntry(entry.speciesName))
+                );
+                await db.collection('students').doc(student.id).update({
+                    pokemon: {
+                        ...student.pokemon,
+                        evolutionChain: localizedEvolutionChain
+                    }
+                });
+            } catch (error) {
+                console.error('更新寶可夢中文名稱失敗:', error);
+            } finally {
+                state.studentPokemonLocalizationLocks.delete(student.id);
+            }
+        };
+
+        const localizeExistingStudentPokemon = async () => {
+            if (!db || state.students.length === 0) return;
+            for (const student of state.students.filter(shouldLocalizeStudentPokemon)) {
+                localizeStudentPokemon(student);
+            }
+        };
+
+        const getRandomPokemonId = () => RANDOM_POKEMON_IDS[Math.floor(Math.random() * RANDOM_POKEMON_IDS.length)];
+
+        const createRandomPokemonPayload = async () => buildPokemonProfile(getRandomPokemonId());
+
+        const assignPokemonToStudent = async (studentId, identifier, options = {}) => {
+            const student = state.students.find(item => item.id === studentId);
+            if (!student) return;
+            if (state.studentPokemonAssignmentLocks.has(studentId)) return;
+            state.studentPokemonAssignmentLocks.add(studentId);
+            try {
+                const pokemon = await buildPokemonProfile(identifier);
+                if (options.preserveProgress && student.pokemon) {
+                    pokemon.pendingEvolutionCount = Number(student.pokemon.pendingEvolutionCount || 0);
+                    pokemon.evolutionPointsEarned = Number(student.pokemon.evolutionPointsEarned || 0);
+                }
+                await db.collection('students').doc(studentId).update({ pokemon });
+                if (!options.silent) {
+                    showToast(`${student.name} 的寶可夢已更新`, 'success');
+                }
+            } catch (error) {
+                console.error('設定學生寶可夢失敗:', error);
+                showToast('寶可夢資料載入失敗', 'error');
+            } finally {
+                state.studentPokemonAssignmentLocks.delete(studentId);
+            }
+        };
+
+        const assignMissingPokemonToStudents = async () => {
+            if (!state.isTeacherMode || !db || state.students.length === 0) return;
+            const missingStudents = state.students.filter(student =>
+                !student.pokemon ||
+                !Array.isArray(student.pokemon.evolutionChain) ||
+                student.pokemon.evolutionChain.length === 0
+            );
+            for (const student of missingStudents) {
+                if (state.studentPokemonAssignmentLocks.has(student.id)) continue;
+                assignPokemonToStudent(student.id, getRandomPokemonId(), { silent: true });
+            }
+        };
 
         // --- 渲染函式 ---
         const setLoading = (isLoading) => {
@@ -968,6 +1819,12 @@ service cloud.firestore {
             }
             
             sortedStudents.forEach(student => {
+                const normalizedStudent = normalizeStudentPokemon(student);
+                const currentPokemon = getCurrentPokemonStage(normalizedStudent);
+                const pendingEvolutionCount = normalizedStudent.pokemon?.pendingEvolutionCount || 0;
+                const canEvolve = Boolean(currentPokemon && getNextPokemonStage(normalizedStudent) && pendingEvolutionCount > 0);
+                const canTransform = Boolean(currentPokemon && canTransformFinalForm(normalizedStudent));
+                const isActionReady = canEvolve || canTransform;
                 const card = document.createElement('div');
                 card.className = 'student-card glass-panel rounded-2xl p-4 flex flex-col items-center cursor-pointer relative overflow-hidden';
                 card.dataset.studentId = student.id;
@@ -975,10 +1832,43 @@ service cloud.firestore {
                 const pointChangeEl = document.createElement('div');
                 pointChangeEl.className = 'point-change-indicator absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-5xl font-black font-exo pointer-events-none opacity-0 z-20';
                 
+                const avatarShell = document.createElement('div');
+                avatarShell.className = 'avatar-shell mb-3';
+
                 const avatar = document.createElement('img');
                 avatar.src = student.avatar || generateAvatar(student.name);
                 avatar.alt = student.name;
-                avatar.className = 'w-20 h-20 rounded-2xl shadow-lg mb-3 object-cover border-2 border-white/20';
+                avatar.className = 'w-20 h-20 rounded-2xl shadow-lg object-cover border-2 border-white/20';
+                avatarShell.appendChild(avatar);
+
+                if (currentPokemon?.sprite) {
+                    const pokemonBadge = document.createElement('button');
+                    pokemonBadge.type = 'button';
+                    pokemonBadge.className = `pokemon-badge ${isActionReady ? 'evolution-ready' : ''}`;
+                    pokemonBadge.title = canEvolve
+                        ? `${currentPokemon.displayName} 可進化，點擊進化`
+                        : canTransform
+                            ? `${currentPokemon.displayName} 可變身，點擊變身`
+                            : currentPokemon.displayName;
+                    pokemonBadge.innerHTML = `<img src="${currentPokemon.sprite}" alt="${currentPokemon.displayName}">`;
+                    pokemonBadge.addEventListener('click', async (event) => {
+                        event.stopPropagation();
+                        if (!state.isTeacherMode) return;
+                        if (!isActionReady) return;
+                        pokemonBadge.classList.add('evolving');
+                        setTimeout(() => pokemonBadge.classList.remove('evolving'), 900);
+                        await evolveStudentPokemon(student.id);
+                    });
+
+                    if (pendingEvolutionCount > 0) {
+                        const counter = document.createElement('span');
+                        counter.className = 'pokemon-counter';
+                        counter.textContent = pendingEvolutionCount;
+                        pokemonBadge.appendChild(counter);
+                    }
+
+                    avatarShell.appendChild(pokemonBadge);
+                }
 
                 const nameContainer = document.createElement('div');
                 nameContainer.className = 'text-center w-full z-10';
@@ -997,12 +1887,63 @@ service cloud.firestore {
                 const glow = document.createElement('div');
                 glow.className = 'absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent to-black/20 pointer-events-none';
 
-                card.append(pointChangeEl, avatar, nameContainer, points, glow);
+                const pokemonNameChip = document.createElement('div');
+                pokemonNameChip.className = 'pokemon-name-chip';
+                pokemonNameChip.textContent = currentPokemon ? currentPokemon.displayName : '寶可夢載入中';
+
+                card.append(pointChangeEl, avatarShell, nameContainer, points, pokemonNameChip, glow);
                 card.addEventListener('click', () => {
                     playSound(app.sounds.click);
                     openPointsModal(student.id);
                 });
                 app.containers.studentGrid.appendChild(card);
+            });
+        };
+
+        const renderPokemonManagerGrid = async () => {
+            app.containers.pokemonManagerGrid.innerHTML = '';
+            if (state.students.length === 0) {
+                app.containers.pokemonManagerGrid.innerHTML = '<p class="text-center text-gray-400 p-8 col-span-full">目前沒有學生資料。</p>';
+                return;
+            }
+
+            const catalog = await ensurePokemonCatalog();
+            const optionsHtml = catalog.map(option => `<option value="${option.id}">${option.label}</option>`).join('');
+            const sortedStudents = [...state.students].sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
+
+            sortedStudents.forEach(student => {
+                const normalizedStudent = normalizeStudentPokemon(student);
+                const currentPokemon = getCurrentPokemonStage(normalizedStudent);
+                const card = document.createElement('div');
+                card.className = 'pokemon-manager-card rounded-2xl p-4';
+                card.innerHTML = `
+                    <div class="flex items-center gap-4 mb-4">
+                        <img src="${student.avatar || generateAvatar(student.name)}" alt="${student.name}" class="w-14 h-14 rounded-xl object-cover border border-white/10">
+                        <div class="min-w-0">
+                            <p class="font-bold text-white truncate">${student.name}</p>
+                            <p class="text-xs text-gray-400 truncate">${student.group || '未分組'}</p>
+                        </div>
+                        ${currentPokemon?.sprite ? `<img src="${currentPokemon.sprite}" alt="${currentPokemon.displayName}" class="w-14 h-14 ml-auto object-contain">` : ''}
+                    </div>
+                    <p class="text-xs text-gray-400 mb-2">目前寶可夢：<span class="text-white font-bold">${currentPokemon?.displayName || '未設定'}</span></p>
+                    <p class="text-xs text-gray-400 mb-3">可使用次數：<span class="text-yellow-300 font-bold">${normalizedStudent.pokemon?.pendingEvolutionCount || 0}</span></p>
+                    <select class="pokemon-select w-full p-3 bg-black/30 border border-white/20 rounded-lg text-white" data-student-id="${student.id}">
+                        <option value="">請選擇寶可夢</option>
+                        ${optionsHtml}
+                    </select>
+                `;
+                const select = card.querySelector('.pokemon-select');
+                if (currentPokemon?.pokemonId) {
+                    select.value = String(currentPokemon.pokemonId);
+                }
+                select.addEventListener('change', async (event) => {
+                    const selectedId = event.target.value;
+                    if (!selectedId) return;
+                    event.target.disabled = true;
+                    await assignPokemonToStudent(student.id, selectedId);
+                    event.target.disabled = false;
+                });
+                app.containers.pokemonManagerGrid.appendChild(card);
             });
         };
 
@@ -1302,6 +2243,21 @@ service cloud.firestore {
             toggleModal(app.modals.manageAvatars, true);
         };
 
+        const openManagePokemonModal = async () => {
+            playSound(app.sounds.click);
+            app.containers.pokemonManagerStatus.classList.remove('hidden');
+            app.containers.pokemonManagerStatus.textContent = '正在載入寶可夢圖鑑...';
+            toggleModal(app.modals.managePokemon, true);
+            try {
+                await renderPokemonManagerGrid();
+                app.containers.pokemonManagerStatus.classList.add('hidden');
+            } catch (error) {
+                console.error('載入寶可夢管理面板失敗:', error);
+                app.containers.pokemonManagerStatus.classList.remove('hidden');
+                app.containers.pokemonManagerStatus.textContent = '寶可夢資料載入失敗，請稍後再試。';
+            }
+        };
+
         const renderAvatarGrid = () => {
             app.containers.avatarGrid.innerHTML = '';
             if (state.students.length === 0) {
@@ -1334,26 +2290,30 @@ service cloud.firestore {
         const openClassSettingsModal = () => {
             playSound(app.sounds.click);
             app.inputs.className.value = state.className;
+            app.inputs.evolutionThreshold.value = state.evolutionThreshold;
             toggleModal(app.modals.classSettings, true);
         };
 
         const handleSaveClassSettings = async () => {
             const newName = app.inputs.className.value.trim();
+            const evolutionThreshold = Number(app.inputs.evolutionThreshold.value);
             if (!newName) {
                 alert('班級名稱不能為空');
+                return;
+            }
+            if (!Number.isFinite(evolutionThreshold) || evolutionThreshold <= 0) {
+                alert('進化門檻必須是大於 0 的整數');
                 return;
             }
             
             playSound(app.sounds.click);
             try {
-                await db.collection('config').doc('main').set({ className: newName }, { merge: true });
+                await db.collection('config').doc('main').set({
+                    className: newName,
+                    evolutionThreshold: Math.floor(evolutionThreshold)
+                }, { merge: true });
                 toggleModal(app.modals.classSettings, false);
-                
-                const toast = document.createElement('div');
-                toast.className = 'fixed top-6 right-6 bg-green-500 text-white p-3 rounded-xl font-bold z-50 shadow-lg';
-                toast.textContent = '✅ 設定已儲存';
-                document.body.appendChild(toast);
-                setTimeout(() => document.body.removeChild(toast), 2000);
+                showToast('班級設定已儲存', 'success');
             } catch (error) {
                 console.error("儲存設定失敗:", error);
                 alert("儲存設定失敗");
@@ -1368,8 +2328,9 @@ service cloud.firestore {
                 return;
             }
             playSound(app.sounds.click);
+            await ensurePokemonCatalog();
             const batch = db.batch();
-            const studentsPayload = lines.map(line => {
+            const studentsPayload = await Promise.all(lines.map(async (line) => {
                 let name, group = '';
                 const separator = line.includes(',') ? ',' : (line.includes('\t') ? '\t' : null);
                 if (separator) {
@@ -1377,8 +2338,14 @@ service cloud.firestore {
                 } else {
                     name = line;
                 }
-                return { name, group: group || '', avatar: generateAvatar(name), points: 0 };
-            });
+                return {
+                    name,
+                    group: group || '',
+                    avatar: generateAvatar(name),
+                    points: 0,
+                    pokemon: await createRandomPokemonPayload()
+                };
+            }));
 
             studentsPayload.forEach(student => {
                 const docRef = db.collection('students').doc();
@@ -1395,6 +2362,61 @@ service cloud.firestore {
             } catch (error) {
                 console.error("新增學生失敗:", error);
                 alert("新增學生失敗。");
+            }
+        };
+
+        const calculateEvolutionUpdate = (student, points) => {
+            if (!student.pokemon || points <= 0) return null;
+            const threshold = Math.max(1, Number(state.evolutionThreshold || DEFAULT_EVOLUTION_THRESHOLD));
+            const oldEarned = Number(student.pokemon.evolutionPointsEarned || 0);
+            const newEarned = oldEarned + Number(points);
+            const earnedEvolutionCount = Math.floor(newEarned / threshold) - Math.floor(oldEarned / threshold);
+            return {
+                evolutionPointsEarned: newEarned,
+                pendingEvolutionCount: Number(student.pokemon.pendingEvolutionCount || 0) + Math.max(0, earnedEvolutionCount)
+            };
+        };
+
+        const evolveStudentPokemon = async (studentId) => {
+            const student = state.students.find(item => item.id === studentId);
+            if (!student || !student.pokemon) return;
+            if (state.evolutionAnimationActive) return;
+            const currentStage = getCurrentPokemonStage(student);
+            const nextStage = getNextPokemonStage(student);
+            const pendingEvolutionCount = Number(student.pokemon.pendingEvolutionCount || 0);
+            if (!currentStage || pendingEvolutionCount <= 0) return;
+
+            try {
+                playSound(app.sounds.positive);
+                if (nextStage) {
+                    await playEvolutionOverlay(student, currentStage, nextStage, 'evolution');
+                    await db.collection('students').doc(studentId).update({
+                        'pokemon.evolutionStageIndex': Number(student.pokemon.evolutionStageIndex || 0) + 1,
+                        'pokemon.pendingEvolutionCount': pendingEvolutionCount - 1
+                    });
+                    showToast(`${student.name} 的 ${nextStage.displayName} 登場了！`, 'success');
+                    return;
+                }
+
+                const currentFinalStage = getFinalPokemonStage(student) || currentStage;
+                showToast(`${student.name} 正在尋找新的最終形態...`, 'info', 1600);
+                const transformedPokemon = await getRandomFinalFormProfile(currentFinalStage.speciesName);
+                const transformedStage = transformedPokemon.evolutionChain[transformedPokemon.evolutionChain.length - 1];
+                await playEvolutionOverlay(student, currentStage, transformedStage, 'transform');
+                await db.collection('students').doc(studentId).update({
+                    pokemon: {
+                        ...transformedPokemon,
+                        pendingEvolutionCount: pendingEvolutionCount - 1,
+                        evolutionPointsEarned: Number(student.pokemon.evolutionPointsEarned || 0)
+                    }
+                });
+                showToast(`${student.name} 隨機變身成 ${transformedStage.displayName}！`, 'success', 2600);
+            } catch (error) {
+                console.error('寶可夢進化失敗:', error);
+                app.modals.evolutionOverlay.classList.add('hidden');
+                app.modals.evolutionOverlay.classList.remove('reveal-next');
+                state.evolutionAnimationActive = false;
+                showToast('寶可夢進化或變身失敗', 'error');
             }
         };
         
@@ -1431,16 +2453,26 @@ service cloud.firestore {
             const studentRef = db.collection('students').doc(state.currentStudentId);
             const logRef = db.collection('logs').doc();
             try {
+                const student = state.students.find(s => s.id === state.currentStudentId);
+                const evolutionUpdate = calculateEvolutionUpdate(student, Number(points));
                 const batch = db.batch();
-                batch.update(studentRef, { points: firebase.firestore.FieldValue.increment(Number(points)) });
+                const studentUpdates = { points: firebase.firestore.FieldValue.increment(Number(points)) };
+                if (evolutionUpdate) {
+                    studentUpdates['pokemon.evolutionPointsEarned'] = evolutionUpdate.evolutionPointsEarned;
+                    studentUpdates['pokemon.pendingEvolutionCount'] = evolutionUpdate.pendingEvolutionCount;
+                }
+                batch.update(studentRef, studentUpdates);
                 batch.set(logRef, {
                     studentId: state.currentStudentId,
-                    studentName: state.students.find(s => s.id === state.currentStudentId).name,
+                    studentName: student.name,
                     behaviorName: name,
                     points: Number(points),
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 await batch.commit();
+                if (evolutionUpdate && evolutionUpdate.pendingEvolutionCount > Number(student.pokemon.pendingEvolutionCount || 0)) {
+                    showToast(`${student.name} 獲得 ${evolutionUpdate.pendingEvolutionCount - Number(student.pokemon.pendingEvolutionCount || 0)} 次進化機會`, 'warning');
+                }
             } catch (error) {
                 console.error("更新點數失敗:", error);
             }
@@ -1460,7 +2492,13 @@ service cloud.firestore {
             const batch = db.batch();
             students.forEach(student => {
                 const studentRef = db.collection('students').doc(student.id);
-                batch.update(studentRef, { points: firebase.firestore.FieldValue.increment(Number(points)) });
+                const evolutionUpdate = calculateEvolutionUpdate(student, Number(points));
+                const studentUpdates = { points: firebase.firestore.FieldValue.increment(Number(points)) };
+                if (evolutionUpdate) {
+                    studentUpdates['pokemon.evolutionPointsEarned'] = evolutionUpdate.evolutionPointsEarned;
+                    studentUpdates['pokemon.pendingEvolutionCount'] = evolutionUpdate.pendingEvolutionCount;
+                }
+                batch.update(studentRef, studentUpdates);
                 const logRef = db.collection('logs').doc();
                 batch.set(logRef, {
                     studentId: student.id,
@@ -1473,6 +2511,15 @@ service cloud.firestore {
 
             try {
                 await batch.commit();
+                if (Number(points) > 0) {
+                    const evolvedStudents = students.filter(student => {
+                        const result = calculateEvolutionUpdate(student, Number(points));
+                        return result && result.pendingEvolutionCount > Number(student.pokemon?.pendingEvolutionCount || 0);
+                    });
+                    if (evolvedStudents.length > 0) {
+                        showToast(`${evolvedStudents.length} 位學生新增了寶可夢進化次數`, 'warning', 2800);
+                    }
+                }
             } catch (error) {
                 console.error("分組更新點數失敗:", error);
             }
@@ -1528,7 +2575,12 @@ service cloud.firestore {
                 let batch = db.batch();
                 state.students.forEach(student => {
                     const studentRef = db.collection('students').doc(student.id);
-                    batch.update(studentRef, { points: 0 });
+                    const studentUpdates = { points: 0 };
+                    if (student.pokemon) {
+                        studentUpdates['pokemon.pendingEvolutionCount'] = 0;
+                        studentUpdates['pokemon.evolutionPointsEarned'] = 0;
+                    }
+                    batch.update(studentRef, studentUpdates);
                 });
                 await batch.commit();
 
@@ -1703,6 +2755,7 @@ service cloud.firestore {
 
             app.buttons.closeManageStudent.addEventListener('click', () => toggleModal(app.modals.manageStudent, false));
             app.buttons.closeAvatars.addEventListener('click', () => toggleModal(app.modals.manageAvatars, false));
+            app.buttons.closePokemonManager.addEventListener('click', () => toggleModal(app.modals.managePokemon, false));
             app.buttons.cancelExport.addEventListener('click', () => toggleModal(app.modals.export, false));
             app.buttons.closePoints.addEventListener('click', () => toggleModal(app.modals.points, false));
             app.buttons.closeHistory.addEventListener('click', () => toggleModal(app.modals.history, false));
@@ -1735,6 +2788,7 @@ service cloud.firestore {
                 app.buttons.manageStudent.addEventListener('click', openManageStudentModal);
                 app.buttons.confirmAddStudent.addEventListener('click', handleAddStudents);
                 app.buttons.manageAvatars.addEventListener('click', openAvatarsModal);
+                app.buttons.managePokemon.addEventListener('click', openManagePokemonModal);
                 app.buttons.exportGrades.addEventListener('click', () => { playSound(app.sounds.click); toggleModal(app.modals.export, true); });
                 app.buttons.resetPoints.addEventListener('click', handleResetPoints);
                 app.buttons.manageBehaviors.addEventListener('click', openManageBehaviorsModal);
@@ -1790,12 +2844,13 @@ service cloud.firestore {
                     const data = doc.data();
                     if(data) {
                         state.className = data.className || 'Classroom Points!';
+                        state.evolutionThreshold = Number(data.evolutionThreshold || DEFAULT_EVOLUTION_THRESHOLD);
                         app.titles.className.textContent = state.className;
                         document.title = state.className;
                     }
                 });
                 const unsubStudents = db.collection('students').onSnapshot(snapshot => {
-                    state.students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    state.students = snapshot.docs.map(doc => normalizeStudentPokemon({ id: doc.id, ...doc.data() }));
                     const hasGroups = state.students.some(s => s.group);
                     if (hasGroups) app.containers.tabsContainer.classList.remove('hidden');
                     else app.containers.tabsContainer.classList.add('hidden');
@@ -1803,7 +2858,10 @@ service cloud.firestore {
                     renderStudentGrid();
                     if (!app.modals.manageStudent.classList.contains('hidden')) renderStudentDeletionList();
                     if (!app.modals.manageAvatars.classList.contains('hidden')) renderAvatarGrid();
+                    if (!app.modals.managePokemon.classList.contains('hidden')) renderPokemonManagerGrid();
                     if (state.activeTab === 'groups') renderGroupsGrid();
+                    assignMissingPokemonToStudents();
+                    localizeExistingStudentPokemon();
                     setLoading(false);
                 }, error => { console.error("學生資料監聽失敗:", error); setLoading(false); });
 
@@ -1825,7 +2883,10 @@ service cloud.firestore {
         
         const initializeFirstTimeData = async () => {
             const batch = db.batch();
-            batch.set(db.collection('config').doc('main'), { className: '我的班級' });
+            batch.set(db.collection('config').doc('main'), {
+                className: '我的班級',
+                evolutionThreshold: DEFAULT_EVOLUTION_THRESHOLD
+            });
             const defaultBehaviors = [
                 { name: "積極參與", points: 1, type: "positive" }, { name: "幫助同學", points: 1, type: "positive" },
                 { name: "準時交作業", points: 2, type: "positive" }, { name: "團隊合作", points: 1, type: "positive" },
@@ -1834,10 +2895,13 @@ service cloud.firestore {
                 { name: "遲到早退", points: -1, type: "negative" }
             ];
             defaultBehaviors.forEach(b => batch.set(db.collection('behaviors').doc(), b));
-            const sampleStudents = [
+            const sampleStudents = await Promise.all([
                 { name: "王小明", points: 0, avatar: generateAvatar("王小明"), group: "第一組" },
                 { name: "陳小華", points: 0, avatar: generateAvatar("陳小華"), group: "第二組" }
-            ];
+            ].map(async student => ({
+                ...student,
+                pokemon: await createRandomPokemonPayload()
+            })));
             sampleStudents.forEach(s => batch.set(db.collection('students').doc(), s));
             await batch.commit();
         };
