@@ -1549,9 +1549,7 @@ service cloud.firestore {
             if (student.pokemon.evolutionUsageCount !== undefined) {
                 return Math.max(0, Number(student.pokemon.evolutionUsageCount || 0));
             }
-            const legacyPendingCount = Math.max(0, Number(student.pokemon.pendingEvolutionCount || 0));
-            const totalEligibleActions = Math.floor(Math.max(0, Number(student.points) || 0) / getEvolutionThresholdValue());
-            return Math.max(0, totalEligibleActions - legacyPendingCount);
+            return 0;
         };
 
         const canTransformFinalForm = (student) => {
@@ -1727,7 +1725,12 @@ service cloud.firestore {
 
         const getRandomPokemonId = () => RANDOM_POKEMON_IDS[Math.floor(Math.random() * RANDOM_POKEMON_IDS.length)];
 
-        const createRandomPokemonPayload = async () => buildPokemonProfile(getRandomPokemonId());
+        const createRandomPokemonPayload = async (points = 0) => {
+            const pokemon = await buildPokemonProfile(getRandomPokemonId());
+            pokemon.evolutionUsageCount = 0;
+            pokemon.pendingEvolutionCount = getAvailableEvolutionActions(points, 0);
+            return pokemon;
+        };
 
         const assignPokemonToStudent = async (studentId, identifier, options = {}) => {
             const student = state.students.find(item => item.id === studentId);
@@ -1739,6 +1742,9 @@ service cloud.firestore {
                 if (options.preserveProgress && student.pokemon) {
                     pokemon.evolutionUsageCount = Number(student.pokemon.evolutionUsageCount || deriveEvolutionUsageCount(student) || 0);
                     pokemon.pendingEvolutionCount = getAvailableEvolutionActions(student.points, pokemon.evolutionUsageCount);
+                } else {
+                    pokemon.evolutionUsageCount = 0;
+                    pokemon.pendingEvolutionCount = getAvailableEvolutionActions(student.points, 0);
                 }
                 await db.collection('students').doc(studentId).update({ pokemon });
                 if (!options.silent) {
@@ -1762,6 +1768,22 @@ service cloud.firestore {
             for (const student of missingStudents) {
                 if (state.studentPokemonAssignmentLocks.has(student.id)) continue;
                 assignPokemonToStudent(student.id, getRandomPokemonId(), { silent: true });
+            }
+        };
+
+        const syncLegacyEvolutionData = async () => {
+            if (!db || state.students.length === 0) return;
+            for (const student of state.students) {
+                if (!student.pokemon) continue;
+                if (student.pokemon.evolutionUsageCount !== undefined) continue;
+                try {
+                    await db.collection('students').doc(student.id).update({
+                        'pokemon.evolutionUsageCount': 0,
+                        'pokemon.pendingEvolutionCount': getAvailableEvolutionActions(student.points, 0)
+                    });
+                } catch (error) {
+                    console.error('同步舊版進化資料失敗:', error);
+                }
             }
         };
 
@@ -2362,7 +2384,7 @@ service cloud.firestore {
                     group: group || '',
                     avatar: generateAvatar(name),
                     points: 0,
-                    pokemon: await createRandomPokemonPayload()
+                    pokemon: await createRandomPokemonPayload(0)
                 };
             }));
 
@@ -2888,6 +2910,7 @@ service cloud.firestore {
                     if (!app.modals.managePokemon.classList.contains('hidden')) renderPokemonManagerGrid();
                     if (state.activeTab === 'groups') renderGroupsGrid();
                     assignMissingPokemonToStudents();
+                    syncLegacyEvolutionData();
                     localizeExistingStudentPokemon();
                     setLoading(false);
                 }, error => { console.error("學生資料監聽失敗:", error); setLoading(false); });
@@ -2927,7 +2950,7 @@ service cloud.firestore {
                 { name: "陳小華", points: 0, avatar: generateAvatar("陳小華"), group: "第二組" }
             ].map(async student => ({
                 ...student,
-                pokemon: await createRandomPokemonPayload()
+                pokemon: await createRandomPokemonPayload(student.points)
             })));
             sampleStudents.forEach(s => batch.set(db.collection('students').doc(), s));
             await batch.commit();
