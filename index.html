@@ -1514,7 +1514,7 @@ service cloud.firestore {
                 sourcePokemonId: pokemonData.id,
                 evolutionStageIndex,
                 pendingEvolutionCount: 0,
-                evolutionPointsEarned: 0,
+                evolutionUsageCount: 0,
                 evolutionChain
             };
         };
@@ -1534,6 +1534,24 @@ service cloud.firestore {
         const getFinalPokemonStage = (student) => {
             const chain = student?.pokemon?.evolutionChain || [];
             return chain.length > 0 ? chain[chain.length - 1] : null;
+        };
+
+        const getEvolutionThresholdValue = () => Math.max(1, Number(state.evolutionThreshold || DEFAULT_EVOLUTION_THRESHOLD));
+
+        const getAvailableEvolutionActions = (points, usageCount = 0) => {
+            const threshold = getEvolutionThresholdValue();
+            const totalEligibleActions = Math.floor(Math.max(0, Number(points) || 0) / threshold);
+            return Math.max(0, totalEligibleActions - Math.max(0, Number(usageCount) || 0));
+        };
+
+        const deriveEvolutionUsageCount = (student) => {
+            if (!student?.pokemon) return 0;
+            if (student.pokemon.evolutionUsageCount !== undefined) {
+                return Math.max(0, Number(student.pokemon.evolutionUsageCount || 0));
+            }
+            const legacyPendingCount = Math.max(0, Number(student.pokemon.pendingEvolutionCount || 0));
+            const totalEligibleActions = Math.floor(Math.max(0, Number(student.points) || 0) / getEvolutionThresholdValue());
+            return Math.max(0, totalEligibleActions - legacyPendingCount);
         };
 
         const canTransformFinalForm = (student) => {
@@ -1601,13 +1619,14 @@ service cloud.firestore {
                 return student;
             }
             const stageIndex = Math.min(student.pokemon.evolutionStageIndex || 0, student.pokemon.evolutionChain.length - 1);
+            const evolutionUsageCount = deriveEvolutionUsageCount(student);
             return {
                 ...student,
                 pokemon: {
                     ...student.pokemon,
                     evolutionStageIndex: stageIndex,
-                    pendingEvolutionCount: Math.max(0, Number(student.pokemon.pendingEvolutionCount || 0)),
-                    evolutionPointsEarned: Math.max(0, Number(student.pokemon.evolutionPointsEarned || 0))
+                    evolutionUsageCount,
+                    pendingEvolutionCount: getAvailableEvolutionActions(student.points, evolutionUsageCount)
                 }
             };
         };
@@ -1666,7 +1685,7 @@ service cloud.firestore {
                 return {
                     ...profile,
                     pendingEvolutionCount: 0,
-                    evolutionPointsEarned: 0
+                    evolutionUsageCount: 0
                 };
             }
 
@@ -1718,8 +1737,8 @@ service cloud.firestore {
             try {
                 const pokemon = await buildPokemonProfile(identifier);
                 if (options.preserveProgress && student.pokemon) {
-                    pokemon.pendingEvolutionCount = Number(student.pokemon.pendingEvolutionCount || 0);
-                    pokemon.evolutionPointsEarned = Number(student.pokemon.evolutionPointsEarned || 0);
+                    pokemon.evolutionUsageCount = Number(student.pokemon.evolutionUsageCount || deriveEvolutionUsageCount(student) || 0);
+                    pokemon.pendingEvolutionCount = getAvailableEvolutionActions(student.points, pokemon.evolutionUsageCount);
                 }
                 await db.collection('students').doc(studentId).update({ pokemon });
                 if (!options.silent) {
@@ -2366,14 +2385,13 @@ service cloud.firestore {
         };
 
         const calculateEvolutionUpdate = (student, points) => {
-            if (!student.pokemon || points <= 0) return null;
-            const threshold = Math.max(1, Number(state.evolutionThreshold || DEFAULT_EVOLUTION_THRESHOLD));
-            const oldEarned = Number(student.pokemon.evolutionPointsEarned || 0);
-            const newEarned = oldEarned + Number(points);
-            const earnedEvolutionCount = Math.floor(newEarned / threshold) - Math.floor(oldEarned / threshold);
+            if (!student.pokemon) return null;
+            const currentPoints = Number(student.points || 0);
+            const newPoints = currentPoints + Number(points || 0);
+            const evolutionUsageCount = Number(student.pokemon.evolutionUsageCount || deriveEvolutionUsageCount(student) || 0);
             return {
-                evolutionPointsEarned: newEarned,
-                pendingEvolutionCount: Number(student.pokemon.pendingEvolutionCount || 0) + Math.max(0, earnedEvolutionCount)
+                evolutionUsageCount,
+                pendingEvolutionCount: getAvailableEvolutionActions(newPoints, evolutionUsageCount)
             };
         };
 
@@ -2390,9 +2408,11 @@ service cloud.firestore {
                 playSound(app.sounds.positive);
                 if (nextStage) {
                     await playEvolutionOverlay(student, currentStage, nextStage, 'evolution');
+                    const nextUsageCount = Number(student.pokemon.evolutionUsageCount || deriveEvolutionUsageCount(student) || 0) + 1;
                     await db.collection('students').doc(studentId).update({
                         'pokemon.evolutionStageIndex': Number(student.pokemon.evolutionStageIndex || 0) + 1,
-                        'pokemon.pendingEvolutionCount': pendingEvolutionCount - 1
+                        'pokemon.evolutionUsageCount': nextUsageCount,
+                        'pokemon.pendingEvolutionCount': getAvailableEvolutionActions(student.points, nextUsageCount)
                     });
                     showToast(`${student.name} 的 ${nextStage.displayName} 登場了！`, 'success');
                     return;
@@ -2402,12 +2422,13 @@ service cloud.firestore {
                 showToast(`${student.name} 正在尋找新的最終形態...`, 'info', 1600);
                 const transformedPokemon = await getRandomFinalFormProfile(currentFinalStage.speciesName);
                 const transformedStage = transformedPokemon.evolutionChain[transformedPokemon.evolutionChain.length - 1];
+                const nextUsageCount = Number(student.pokemon.evolutionUsageCount || deriveEvolutionUsageCount(student) || 0) + 1;
                 await playEvolutionOverlay(student, currentStage, transformedStage, 'transform');
                 await db.collection('students').doc(studentId).update({
                     pokemon: {
                         ...transformedPokemon,
-                        pendingEvolutionCount: pendingEvolutionCount - 1,
-                        evolutionPointsEarned: Number(student.pokemon.evolutionPointsEarned || 0)
+                        evolutionUsageCount: nextUsageCount,
+                        pendingEvolutionCount: getAvailableEvolutionActions(student.points, nextUsageCount)
                     }
                 });
                 showToast(`${student.name} 隨機變身成 ${transformedStage.displayName}！`, 'success', 2600);
@@ -2458,7 +2479,7 @@ service cloud.firestore {
                 const batch = db.batch();
                 const studentUpdates = { points: firebase.firestore.FieldValue.increment(Number(points)) };
                 if (evolutionUpdate) {
-                    studentUpdates['pokemon.evolutionPointsEarned'] = evolutionUpdate.evolutionPointsEarned;
+                    studentUpdates['pokemon.evolutionUsageCount'] = evolutionUpdate.evolutionUsageCount;
                     studentUpdates['pokemon.pendingEvolutionCount'] = evolutionUpdate.pendingEvolutionCount;
                 }
                 batch.update(studentRef, studentUpdates);
@@ -2495,7 +2516,7 @@ service cloud.firestore {
                 const evolutionUpdate = calculateEvolutionUpdate(student, Number(points));
                 const studentUpdates = { points: firebase.firestore.FieldValue.increment(Number(points)) };
                 if (evolutionUpdate) {
-                    studentUpdates['pokemon.evolutionPointsEarned'] = evolutionUpdate.evolutionPointsEarned;
+                    studentUpdates['pokemon.evolutionUsageCount'] = evolutionUpdate.evolutionUsageCount;
                     studentUpdates['pokemon.pendingEvolutionCount'] = evolutionUpdate.pendingEvolutionCount;
                 }
                 batch.update(studentRef, studentUpdates);
@@ -2577,8 +2598,8 @@ service cloud.firestore {
                     const studentRef = db.collection('students').doc(student.id);
                     const studentUpdates = { points: 0 };
                     if (student.pokemon) {
+                        studentUpdates['pokemon.evolutionUsageCount'] = 0;
                         studentUpdates['pokemon.pendingEvolutionCount'] = 0;
-                        studentUpdates['pokemon.evolutionPointsEarned'] = 0;
                     }
                     batch.update(studentRef, studentUpdates);
                 });
@@ -2847,6 +2868,12 @@ service cloud.firestore {
                         state.evolutionThreshold = Number(data.evolutionThreshold || DEFAULT_EVOLUTION_THRESHOLD);
                         app.titles.className.textContent = state.className;
                         document.title = state.className;
+                        if (state.students.length > 0) {
+                            state.students = state.students.map(normalizeStudentPokemon);
+                            renderStudentGrid();
+                            if (!app.modals.managePokemon.classList.contains('hidden')) renderPokemonManagerGrid();
+                            if (state.activeTab === 'groups') renderGroupsGrid();
+                        }
                     }
                 });
                 const unsubStudents = db.collection('students').onSnapshot(snapshot => {
