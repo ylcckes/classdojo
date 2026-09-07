@@ -1799,6 +1799,10 @@ service cloud.firestore {
             }
         };
         
+        const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+
         const generateAvatar = (seed) => {
             const S = (s) => { let h = 0; for(let i=0; i<s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0; return h; };
             const R = (s) => { s = Math.sin(s) * 10000; return s - Math.floor(s); };
@@ -2048,14 +2052,86 @@ service cloud.firestore {
             let sortedStudents = [...state.students].sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
             sortedStudents.forEach(student => {
                 const item = document.createElement('div');
-                item.className = 'flex items-center justify-between bg-white/5 p-3 rounded-lg mb-2 border border-white/10';
-                item.innerHTML = `<span class="font-bold text-gray-200">${student.name}</span><button data-id="${student.id}" class="delete-student-btn bg-red-500/80 hover:bg-red-600 text-white text-xs font-bold py-1 px-3 rounded shadow transition-colors">刪除</button>`;
+                item.className = 'student-row bg-white/5 p-3 rounded-lg mb-2 border border-white/10';
+                const safeName = escapeHtml(student.name);
+                const safeGroup = escapeHtml(student.group || '');
+                item.innerHTML = `
+                    <div class="edit-student-view flex items-center justify-between">
+                        <div class="min-w-0 mr-2">
+                            <p class="font-bold text-gray-200 truncate">${safeName}</p>
+                            <p class="text-xs text-gray-400 truncate">${student.group ? safeGroup : '未分組'}</p>
+                        </div>
+                        <div class="flex items-center space-x-2 flex-shrink-0">
+                            <button data-id="${student.id}" class="edit-student-btn bg-blue-500/80 hover:bg-blue-600 text-white text-xs font-bold py-1 px-3 rounded shadow transition-colors">編輯</button>
+                            <button data-id="${student.id}" class="delete-student-btn bg-red-500/80 hover:bg-red-600 text-white text-xs font-bold py-1 px-3 rounded shadow transition-colors">刪除</button>
+                        </div>
+                    </div>
+                    <div class="edit-student-form hidden mt-2 space-y-2">
+                        <input type="text" class="edit-student-name-input w-full p-2 bg-black/30 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500" value="${safeName}" placeholder="姓名">
+                        <input type="text" class="edit-student-group-input w-full p-2 bg-black/30 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500" value="${safeGroup}" placeholder="分組（可留空）">
+                        <div class="flex justify-end space-x-2">
+                            <button data-id="${student.id}" class="cancel-edit-student-btn btn-glass rounded-lg px-3 py-1 text-xs font-bold">取消</button>
+                            <button data-id="${student.id}" class="save-edit-student-btn modern-btn btn-primary rounded-lg px-3 py-1 text-xs font-bold">儲存</button>
+                        </div>
+                    </div>
+                `;
                 app.containers.deleteStudentList.appendChild(item);
             });
-            
+
             document.querySelectorAll('.delete-student-btn').forEach(button => {
                 button.addEventListener('click', handleDeleteStudent);
             });
+            document.querySelectorAll('.edit-student-btn').forEach(button => {
+                button.addEventListener('click', handleToggleEditStudent);
+            });
+            document.querySelectorAll('.cancel-edit-student-btn').forEach(button => {
+                button.addEventListener('click', handleToggleEditStudent);
+            });
+            document.querySelectorAll('.save-edit-student-btn').forEach(button => {
+                button.addEventListener('click', handleSaveEditStudent);
+            });
+        };
+
+        const handleToggleEditStudent = (event) => {
+            playSound(app.sounds.click);
+            const item = event.target.closest('.student-row');
+            if (!item) return;
+            const view = item.querySelector('.edit-student-view');
+            const form = item.querySelector('.edit-student-form');
+            const showForm = form.classList.contains('hidden');
+            view.classList.toggle('hidden', showForm);
+            form.classList.toggle('hidden', !showForm);
+            if (showForm) {
+                const nameInput = form.querySelector('.edit-student-name-input');
+                nameInput.focus();
+                nameInput.select();
+            }
+        };
+
+        const handleSaveEditStudent = async (event) => {
+            const studentId = event.target.dataset.id;
+            const item = event.target.closest('.student-row');
+            if (!item) return;
+            const nameInput = item.querySelector('.edit-student-name-input');
+            const groupInput = item.querySelector('.edit-student-group-input');
+            const newName = nameInput.value.trim();
+            const newGroup = groupInput.value.trim();
+
+            if (!newName) {
+                alert('學生姓名不可為空！');
+                return;
+            }
+
+            playSound(app.sounds.click);
+            try {
+                await db.collection('students').doc(studentId).update({
+                    name: newName,
+                    group: newGroup
+                });
+            } catch (error) {
+                console.error('更新學生資料失敗:', error);
+                alert('更新學生資料失敗。');
+            }
         };
 
         // --- Config Modal Logic ---
